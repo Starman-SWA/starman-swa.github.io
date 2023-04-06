@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>bzip2相关论文阅读笔记 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="压缩">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="Parallel Data Compression With Bzip2（分块压缩）压缩算法的分类 字典算法 LZ77（ZIP、GZIP） LZW（自适应） 并行研究   基于统计的算法 建模阶段-&gt;编码阶段 基本建模技术 符号频率 符号上下文 符号排名   算术编码器：PPM部分匹配预测 当前（2004）文本数据的最佳无损压缩算法 有限上下文统计建模技术 使用输入流的前一个字节来预测下一个">
+<meta property="og:type" content="article">
+<meta property="og:title" content="bzip2相关论文阅读笔记">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="Parallel Data Compression With Bzip2（分块压缩）压缩算法的分类 字典算法 LZ77（ZIP、GZIP） LZW（自适应） 并行研究   基于统计的算法 建模阶段-&gt;编码阶段 基本建模技术 符号频率 符号上下文 符号排名   算术编码器：PPM部分匹配预测 当前（2004）文本数据的最佳无损压缩算法 有限上下文统计建模技术 使用输入流的前一个字节来预测下一个">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223101819583.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224152706564.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224154632726.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224163814708.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223145949221.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223180343381.png">
+<meta property="article:published_time" content="2023-03-21T14:05:52.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.485Z">
+<meta property="article:tag" content="压缩">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223101819583.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file active"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-bzip2相关论文阅读笔记" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB/">论文阅读</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E5%8E%8B%E7%BC%A9/" rel="tag">压缩</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">
+            <time datetime="2023-03-21T14:05:52.000Z" itemprop="datePublished">2023-03-21</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/bzip2相关论文阅读笔记.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/bzip2相关论文阅读笔记.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/bzip2相关论文阅读笔记.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            bzip2相关论文阅读笔记
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="Parallel-Data-Compression-With-Bzip2（分块压缩）"><a href="#Parallel-Data-Compression-With-Bzip2（分块压缩）" class="headerlink" title="Parallel Data Compression With Bzip2（分块压缩）"></a>Parallel Data Compression With Bzip2（分块压缩）</h1><h2 id="压缩算法的分类"><a href="#压缩算法的分类" class="headerlink" title="压缩算法的分类"></a>压缩算法的分类</h2><ul>
+<li>字典算法<ul>
+<li>LZ77（ZIP、GZIP）</li>
+<li>LZW（自适应）</li>
+<li>并行研究</li>
+</ul>
+</li>
+<li>基于统计的算法<ul>
+<li>建模阶段-&gt;编码阶段</li>
+<li>基本建模技术<ul>
+<li>符号频率</li>
+<li>符号上下文</li>
+<li>符号排名</li>
+</ul>
+</li>
+<li>算术编码器：PPM部分匹配预测<ul>
+<li>当前（2004）文本数据的最佳无损压缩算法</li>
+<li>有限上下文统计建模技术</li>
+<li>使用输入流的前一个字节来预测下一个字节</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="Burrows-Wheeler-Transform"><a href="#Burrows-Wheeler-Transform" class="headerlink" title="Burrows-Wheeler Transform"></a>Burrows-Wheeler Transform</h2><h3 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h3><ul>
+<li>块排序、无损数据压缩算法，对输入块执行可逆变换</li>
+<li><strong>不执行任何压缩</strong>，但以某种方式修改数据，使其易于使用二级算法进行压缩</li>
+<li>变换后的块包含与原始块相同的字符，但是形式易于压缩，例如相同字符分组在一起</li>
+</ul>
+<h3 id="原理（逆过程见Parallel-algorithms-for-Burrows–Wheeler-compression-and-decompression）"><a href="#原理（逆过程见Parallel-algorithms-for-Burrows–Wheeler-compression-and-decompression）" class="headerlink" title="原理（逆过程见Parallel algorithms for Burrows–Wheeler compression and decompression）"></a>原理（逆过程见<em>Parallel algorithms for Burrows–Wheeler compression and decompression</em>）</h3><ul>
+<li><p>过程</p>
+<ol>
+<li><p>源字符串<em>S</em>，包含N个字符</p>
+</li>
+<li><p>将<em>S</em>旋转（循环移位）N次，将旋转过程中生成的N个中间串进行字典排序</p>
+</li>
+<li><p>提取这N个串的最后一个字符，组合成串<em>L</em></p>
+</li>
+<li><p><em>I</em>为源串<em>S</em>在排序后的串列表当中的索引</p>
+</li>
+</ol>
+</li>
+<li><p>选择分块大小，至少2KB。增大块大小可以增强有效性</p>
+</li>
+<li><p>视为三个阶段</p>
+<ol>
+<li>排序阶段</li>
+<li>“Move-To-Front”阶段</li>
+<li>压缩阶段</li>
+</ol>
+</li>
+</ul>
+<h3 id="性能"><a href="#性能" class="headerlink" title="性能"></a>性能</h3><ul>
+<li>内存消耗：9B内存&#x2F;1B数据+700KB常量</li>
+<li>Move-To-Front编码器的选取影响压缩率：不同的排序顺序和源字母表的顺序</li>
+<li>最佳性能：O(logn&#x2F;n)，优于LZ77、LZ78</li>
+</ul>
+<h3 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h3><ul>
+<li><strong>BZIP2</strong>：BTW+哈夫曼编码<ul>
+<li>压缩率优于基于字典算法的LZ77&#x2F;LZ78</li>
+<li>在基于统计算法的PPM中，压缩率接近，但快很多</li>
+</ul>
+</li>
+</ul>
+<h2 id="并行BWT"><a href="#并行BWT" class="headerlink" title="并行BWT"></a>并行BWT</h2><ul>
+<li>并行排序</li>
+<li>分块BWT</li>
+<li>结合上述两种方法<ul>
+<li>性能取决于处理器数量，需要进行测试</li>
+</ul>
+</li>
+</ul>
+<h2 id="并行BZIP2（PBZIP2）"><a href="#并行BZIP2（PBZIP2）" class="headerlink" title="并行BZIP2（PBZIP2）"></a>并行BZIP2（PBZIP2）</h2><ul>
+<li>pthread</li>
+<li>分块<ul>
+<li>块在内存中以生产者&#x2F;消费者模型、FIFO管理</li>
+<li>每个处理器读取块，执行BWT，然后释放内存</li>
+</ul>
+</li>
+</ul>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><ul>
+<li>随着处理器数量的上升，pbzip2压缩时间减小。减小到大概12个处理器就增长缓慢了。</li>
+</ul>
+<p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223101819583.png" alt="image-20230223101819583"></p>
+<h1 id="Practical-Speculative-Parallelization-of-Variable-Length-Decompression-Algorithms（分块解压）"><a href="#Practical-Speculative-Parallelization-of-Variable-Length-Decompression-Algorithms（分块解压）" class="headerlink" title="Practical Speculative Parallelization of Variable-Length Decompression Algorithms（分块解压）"></a>Practical Speculative Parallelization of Variable-Length Decompression Algorithms（分块解压）</h1><h2 id="解决的问题"><a href="#解决的问题" class="headerlink" title="解决的问题"></a>解决的问题</h2><ul>
+<li><p>如果压缩时采取块级并行，那么解压的时候，在完成对一个块的解压之前，无法确定这个块的边界</p>
+</li>
+<li><p>相关工作的解决办法：</p>
+<ul>
+<li>在压缩块的末尾插入填充位，或者加入提示：只适用于修改后的压缩器</li>
+<li>Klein和Wiseman利用Huffman编码的自同步特性：只适用于静态Huffman编码</li>
+<li>块边界位置在一个输入之内或跨不同输入的相关性几乎为0，因此难以应用domain-unaware value prediction algorithms</li>
+</ul>
+</li>
+<li><p>提出SDM：一个有效预测区块边界的新算法，和能够实现高效区块级并行解压的<strong>运行时</strong>系统</p>
+<ul>
+<li><strong>思考：运行时系统能否被很好应用于移动端？可以，因为华为手表的升级程序是官方定制的。本文的实验是在嵌入式平台上做的</strong></li>
+<li>不需要修改压缩器</li>
+</ul>
+</li>
+</ul>
+<h2 id="动机"><a href="#动机" class="headerlink" title="动机"></a>动机</h2><h3 id="变长解压算法"><a href="#变长解压算法" class="headerlink" title="变长解压算法"></a>变长解压算法</h3><ul>
+<li><p>即使压缩时定长分块，生成的每个块大小也不一样</p>
+</li>
+<li><p>解压时存在的依赖：</p>
+<p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224152706564.png" alt="image-20230224152706564"></p>
+</li>
+</ul>
+<h3 id="基于值预测的推测并行化"><a href="#基于值预测的推测并行化" class="headerlink" title="基于值预测的推测并行化"></a>基于值预测的推测并行化</h3><ul>
+<li><p>三种方法均无效：</p>
+<ul>
+<li><p><em>pos</em>变量在一段时间内或者不同的输入之间构成几乎0的相关性，使得值预测无效</p>
+</li>
+<li><p>在一个块末尾计算<em>pos</em>的复杂性与解压整个块的复杂性相当，使得提取预测器函数开销太大</p>
+</li>
+<li><p>复杂的依赖模式和有限的程序分析能力使得automatic distiller也无效</p>
+</li>
+</ul>
+</li>
+<li><p>目标：三个部件</p>
+<ul>
+<li>自定义值预测器：以高置信度和低开销确定每个压缩块的起点</li>
+<li>运行时错误预测检测和恢复机制</li>
+<li>易于使用的并行化API：将现有的变长解压算法转化为基于值预测的推测并行代码</li>
+</ul>
+</li>
+</ul>
+<h2 id="块边界预测算法"><a href="#块边界预测算法" class="headerlink" title="块边界预测算法"></a>块边界预测算法</h2><h3 id="第一种：基于部分解压"><a href="#第一种：基于部分解压" class="headerlink" title="第一种：基于部分解压"></a>第一种：基于部分解压</h3><ul>
+<li>不适用于bzip2，略</li>
+</ul>
+<h3 id="第二种：基于模式匹配"><a href="#第二种：基于模式匹配" class="headerlink" title="第二种：基于模式匹配"></a>第二种：基于模式匹配</h3><ul>
+<li>bzip2包含一个48比特的魔数头，用于标识一个新的被压缩块的开始；并且不存在块间依赖。采用模式匹配</li>
+</ul>
+<h2 id="SDM执行模型"><a href="#SDM执行模型" class="headerlink" title="SDM执行模型"></a>SDM执行模型</h2><h4 id="SDM三阶段流水线"><a href="#SDM三阶段流水线" class="headerlink" title="SDM三阶段流水线"></a>SDM三阶段流水线</h4><ul>
+<li>三种进程：扫描器、解压器、合并器<ul>
+<li>主进程创建并配置每个阶段</li>
+<li>主进程本身作为合并器</li>
+<li>默认：解压进程数量&#x3D;&#x3D;可用核心数量</li>
+</ul>
+</li>
+<li>在拥有大量可用核心的多核嵌入式平台当中，使用集中式提交模型（一个合并器）<ul>
+<li>解压-合并通信可能成为性能瓶颈</li>
+</ul>
+</li>
+<li>由于上下文切换和内存空间开销，核心数较少的平台无法从额外的进程受益，需要使用分布式提交模型<ul>
+<li>将解压器和合并器融合</li>
+<li>如何顺序提交：定义一个提交令牌在进程间传递。一个块解压后在本地缓存，等待收到解压令牌后才进行提交</li>
+</ul>
+</li>
+</ul>
+<p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224154632726.png" alt="image-20230224154632726"></p>
+<h4 id="错误预测检测和恢复"><a href="#错误预测检测和恢复" class="headerlink" title="错误预测检测和恢复"></a>错误预测检测和恢复</h4><ul>
+<li><p>由合并器负责：将从扫描器收到的预测值与解压器收到的实际值进行对比</p>
+</li>
+<li><p>如果检测到一个错误预测，所有的扫描器和解压器都被停止，程序的其余部分顺序执行</p>
+</li>
+</ul>
+<h2 id="SDM-API"><a href="#SDM-API" class="headerlink" title="SDM API"></a>SDM API</h2><ul>
+<li>略</li>
+</ul>
+<h2 id="实验-1"><a href="#实验-1" class="headerlink" title="实验"></a>实验</h2><p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230224163814708.png" alt="image-20230224163814708"></p>
+<ul>
+<li>错误恢复的性能：对于bzip2，如果误判发生在输入文件的开头附近会造成轻微的性能下降；但是在大多数情况下都比顺序执行要快</li>
+</ul>
+<h1 id="Parallel-algorithms-for-Burrows–Wheeler-compression-and-decompression（块内压缩和解压）"><a href="#Parallel-algorithms-for-Burrows–Wheeler-compression-and-decompression（块内压缩和解压）" class="headerlink" title="Parallel algorithms for Burrows–Wheeler compression and decompression（块内压缩和解压）"></a>Parallel algorithms for Burrows–Wheeler compression and decompression（块内压缩和解压）</h1><h2 id="贡献"><a href="#贡献" class="headerlink" title="贡献"></a>贡献</h2><ul>
+<li>第一个应用于BW压缩和<strong>解压缩</strong>问题的PRAM算法</li>
+<li>相比<em>Parallel Data Compression With Bzip2</em>，解决了<strong>整个输入</strong>的BWT问题，而不是分块<ul>
+<li>本方法与分块方法正交，因此还可以在单个块上叠加应用本方法</li>
+</ul>
+</li>
+</ul>
+<h2 id="预备知识"><a href="#预备知识" class="headerlink" title="预备知识"></a>预备知识</h2><h3 id="BST"><a href="#BST" class="headerlink" title="BST"></a>BST</h3><h4 id="正过程"><a href="#正过程" class="headerlink" title="正过程"></a>正过程</h4><ul>
+<li>见<em>Parallel Data Compression With Bzip2</em></li>
+</ul>
+<h4 id="逆过程（IBST）"><a href="#逆过程（IBST）" class="headerlink" title="逆过程（IBST）"></a>逆过程（IBST）</h4><ul>
+<li><p>定义<em>S<sup>BST</sup><em>为BST正过程生成的串，</em>M</em>为BST正过程排序后的矩阵（<strong>显然M为方阵</strong>）。显然<em>S<sup>BST</sup><em>为</em>M</em>的最后一列</p>
+</li>
+<li><p>需要一个符号表示字符串末尾，且<strong>这个符号的字典序最小</strong>。对于英文字符串，可以取ASCII序在英文字母之前的”<em>$</em>“。在<em>Parallel Data Compression With Bzip2</em>这篇论文当中则是用一个数组记录</p>
+</li>
+<li><p><strong>迭代法</strong>生成<em>M</em>的每一列，迭代N次后，取<em>M</em>的第一行即为原来的<em>S</em></p>
+<ol>
+<li><p>为了生成<em>M</em>的第一列，将*S<sup>BST</sup>*进行稳定排序。</p>
+</li>
+<li><p>为了生成<em>M</em>的前两列，执行下列两个步骤：</p>
+<ol>
+<li><p>将*S<sup>BST</sup>*插入到第一列的左边</p>
+</li>
+<li><p>对<em>M</em>的前两列进行下列定义的排序：</p>
+<ul>
+<li>如果两行的第一个字符不同，则根据第一个字符排序</li>
+<li>如果两行的第一个字符相同，不动</li>
+</ul>
+</li>
+</ol>
+</li>
+<li><p>重复2直到生成<em>M</em></p>
+</li>
+</ol>
+</li>
+<li><p><strong>O(N)复杂度方法</strong></p>
+<ul>
+<li>图示思路：将<em>M</em>中的所有*$<em>写出来；然后旋转每一行，使得</em>$<em>位于最后一列；此时，从左往右读就是源串</em>S*</li>
+<li>伪代码：有点难读懂，先略过</li>
+</ul>
+</li>
+</ul>
+<h3 id="MTF"><a href="#MTF" class="headerlink" title="MTF"></a>MTF</h3><h4 id="正过程-1"><a href="#正过程-1" class="headerlink" title="正过程"></a>正过程</h4><ul>
+<li><p>给定一个字符，MTF将每个字符替换为：该字符本次出现与上次出现之间，<strong>不同</strong>字符的个数。为了保证该定义有效，规定字母表在*S<sup>BST</sup>*之前以某种顺序出现。</p>
+</li>
+<li><p>定义*L<sub>i</sub><em>为</em>S<sup>BST</sup>*的前i个字符中，每一个不同字符以其最后一次出现的位置倒序生成的列表，且考虑上述假定的前缀。</p>
+</li>
+<li><p>伪代码：</p>
+<ol>
+<li><p>L :&#x3D; L<sub>0</sub>（即假定前缀的倒序）</p>
+</li>
+<li><p>for i :&#x3D; 0 to n - 1 do</p>
+<ol>
+<li><p>j :&#x3D; S<sup>BST</sup>[i]在L中的索引</p>
+</li>
+<li><p>S<sup>MTF</sup>[i] :&#x3D; j</p>
+</li>
+<li><p>将L[j]移动到L首部</p>
+</li>
+</ol>
+</li>
+</ol>
+</li>
+<li><p>目的：由于BST保证了同个字符的出现位置相近，MTF生成的是小整数序列，即小整数出现频率很高。因此该序列适合于进行Huffman编码。</p>
+</li>
+</ul>
+<h4 id="逆过程"><a href="#逆过程" class="headerlink" title="逆过程"></a>逆过程</h4><ul>
+<li>伪代码：<ol>
+<li>L :&#x3D; L<sub>0</sub></li>
+<li>for i :&#x3D; 0 to n - 1 do<ol>
+<li>j :&#x3D; S<sup>MTF</sup>[i]</li>
+<li>S<sup>BST</sup> :&#x3D; L[j]</li>
+<li>将L[j]移动到L首部</li>
+</ol>
+</li>
+</ol>
+</li>
+</ul>
+<h3 id="Huffman编码"><a href="#Huffman编码" class="headerlink" title="Huffman编码"></a>Huffman编码</h3><h4 id="正过程-2"><a href="#正过程-2" class="headerlink" title="正过程"></a>正过程</h4><ul>
+<li>伪代码：<ol>
+<li>把字母表中的每个字符在S<sup>MTF</sup>中出现的次数进行统计，生成频率表F</li>
+<li>使用频率表F构造码表T。对于任意两个字符a、b，如果F(a) &lt; F(b)，则|T(a)|&gt;&#x3D;|T(b)|</li>
+<li>将S<sup>MTF</sup>中的每个字符用T中对应的码字代替，生成S<sup>BW</sup>。S<sup>BW</sup>即为整个压缩算法的输出</li>
+</ol>
+</li>
+<li>思考：<ul>
+<li>源串中一个字符需要一个字节来存储；Huffman编码后字符由几个0、1比特表示，只需要几个位来存储。如果Huffman的平均字长小于8，则源文件体积能够减小。</li>
+</ul>
+</li>
+</ul>
+<h4 id="逆过程-1"><a href="#逆过程-1" class="headerlink" title="逆过程"></a>逆过程</h4><ul>
+<li>显而易见。参考<em>解压的并行</em>一章</li>
+</ul>
+<h2 id="压缩的并行"><a href="#压缩的并行" class="headerlink" title="压缩的并行"></a>压缩的并行</h2><h3 id="BST-1"><a href="#BST-1" class="headerlink" title="BST"></a>BST</h3><ol>
+<li><p>构建后缀树</p>
+<ul>
+<li><p>性能：</p>
+<ul>
+<li><p>Sahinalp and Vishkin的算法：<strong>O(log<sup>2</sup>n)时间，O(n)工作，O(n<sup>2</sup>)空间</strong></p>
+</li>
+<li><p>可以将空间复杂度降到O(n<sup>1+ε</sup>)，当时间增加1&#x2F;ε倍</p>
+</li>
+<li><p>Hariharan的算法：<strong>O(log<sup>4</sup>n)时间，O(n)工作，O(n)空间</strong></p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>DFS遍历后缀树，生成后缀数组<em>SA</em></p>
+<ul>
+<li>欧拉旅行技术</li>
+<li>相同复杂度界限</li>
+</ul>
+</li>
+<li><p>按照如下公式生成*S<sub>BST</sub>*：S<sup>BST</sup>[i]&#x3D;S[(SA[i]-1)<sub>mod n</sub>], 0&lt;&#x3D;i&lt;n</p>
+<ul>
+<li>性能：<strong>O(1)时间，O(n)工作</strong></li>
+</ul>
+</li>
+</ol>
+<h3 id="MTF编码"><a href="#MTF编码" class="headerlink" title="MTF编码"></a>MTF编码</h3><ul>
+<li><p>定义</p>
+<ul>
+<li><em>MTF(X)<em>：同</em>L<sub>i</sub><em>，只不过</em>L<sub>i</sub><em>针对的是输入串的前缀，</em>MTF(X)<em>进行了扩展，针对任意子串</em>X</em></li>
+<li><em>x⊕y</em>：  把在<em>y</em>中出现过的字符从<em>x</em>中移除生成一个列表，然后把这个列表拼接到<em>y</em>的后面<ul>
+<li>注解：<em>y</em>不动，<em>x</em>中单独出现的部分拼在<em>y</em>后面</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>观察</p>
+<ul>
+<li><em>MTF(c)&#x3D;(c)</em></li>
+<li><em>MTF(XY)&#x3D;MTF(X)⊕MTF(y)</em></li>
+</ul>
+</li>
+<li><p>目标：计算所有<em>L<sub>i</sub><em>，即计算</em>S<sub>BST</sub><em>（考虑假定前缀）所有前缀的</em>MTF</em></p>
+</li>
+<li><p>步骤：</p>
+<ol>
+<li><p>将*S<sup>BST</sup>*的每个元素看成初始的列表，从下往上，在一棵平衡二叉树中用⊕运算符两两合并列表，直到根节点</p>
+<p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223145949221.png" alt="image-20230223145949221"></p>
+</li>
+<li><p>从上到下，计算每个节点的⊕运算前缀和（从根的最左叶子节点到当前子树的最右叶子节点）。叶子节点的前缀和即为<em>L<sub>i</sub></em></p>
+</li>
+</ol>
+</li>
+<li><p>性能：</p>
+<ul>
+<li>时间复杂度：<strong>O(|Σ|logn)时间，O(|Σ|n)工作</strong></li>
+<li>空间复杂度：n|Σ|</li>
+<li>权衡空间和时间的方法（划分粒度）：选取一个k&lt;n，只排序*L<sub>0</sub><em>、</em>L<sub>k</sub><em>、</em>L<sub>2k</sub>*、……。此时空间降低k倍，时间相应增加k倍</li>
+</ul>
+</li>
+</ul>
+<h3 id="Huffman编码-1"><a href="#Huffman编码-1" class="headerlink" title="Huffman编码"></a>Huffman编码</h3><p>看了，但暂时不关心，没记录</p>
+<h2 id="解压的并行"><a href="#解压的并行" class="headerlink" title="解压的并行"></a>解压的并行</h2><h3 id="Huffman解码"><a href="#Huffman解码" class="headerlink" title="Huffman解码"></a>Huffman解码</h3><ul>
+<li>难点：由于Huffman码字是变长的，需要选定*S<sup>BW</sup>*的分割位置</li>
+<li>定义<em>l</em>为最长码字的长度。不失一般性，假定|<em>S<sup>BW</sup></em>|能够被<em>l</em>整除，我们要把<em>S<sup>BW</sup><em>分割为若干个长度为</em>l</em>的切分。目标是选定每个切分的开始位置</li>
+<li>计算开始位置需要两个步骤：初始化-&gt;前缀和计算<ul>
+<li>初始化阶段<ul>
+<li>从<em>S<sup>BW</sup><em>中的每个位</em>S<sup>BW</sup><sub>i</sub><em>开始执行解码（解码一个码字）。对于每个</em>i</em>，获得一个停止解码的位置<em>j</em>。记为<em>i-&gt;j</em></li>
+</ul>
+</li>
+<li>前缀和计算阶段<ul>
+<li>对于形如<em>a-&gt;b</em>、<em>b-&gt;c</em>的映射，将他们合并为<em>a-&gt;c</em></li>
+<li>合并后，<em>0</em>指向的所有位置都是开始位置，保存到集合<em>V</em>中</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>实际解码阶段如下：<ol>
+<li>部署n&#x2F;l个处理器，每个处理器指定集合<em>V</em>中一个不同的开始位置，并行执行哈夫曼解码，直到到达下一个开始位置。解码后先不写到内存。O(l)时间，O(n)工作</li>
+<li>使用前缀和为每个处理器在<em>S<sup>MTF</sup><em>的输出分配空间。**O(log n)时间，O(n)工作</em></em></li>
+<li>重复步骤1，将输出写到*S<sup>MTF</sup>*。O(l)时间，O(n)工作</li>
+</ol>
+</li>
+<li>实际解码阶段：O(logn+l)时间，O(n)工作</li>
+<li><strong>思考：这么细的划分粒度值得吗？partition的块数太多了，是否可以不要分那么多</strong></li>
+</ul>
+<h3 id="MTF解码"><a href="#MTF解码" class="headerlink" title="MTF解码"></a>MTF解码</h3><ul>
+<li>与编码类型</li>
+<li>性能相同：<strong>O(|Σ|logn)时间，O(|Σ|n)工作</strong></li>
+</ul>
+<h3 id="IBST"><a href="#IBST" class="headerlink" title="IBST"></a>IBST</h3><ul>
+<li><p>涉及Cole and Vishkin的整数排序算法</p>
+<ul>
+<li>性能：<strong>O(|Σ|logn)时间，O(|Σ|n)工作</strong></li>
+</ul>
+</li>
+<li><p>性能：<strong>O(|Σ|logn)时间，O(|Σ|n)工作</strong></p>
+</li>
+</ul>
+<h2 id="实验-2"><a href="#实验-2" class="headerlink" title="实验"></a>实验</h2><ul>
+<li>这篇文章没有做实验</li>
+<li>实验在另一篇文章<em>Empirical Speedup Study of Truly Parallel Data Compression</em></li>
+</ul>
+<h1 id="Empirical-Speedup-Study-of-Truly-Parallel-Data-Compression（块内压缩和解压）"><a href="#Empirical-Speedup-Study-of-Truly-Parallel-Data-Compression（块内压缩和解压）" class="headerlink" title="Empirical Speedup Study of Truly Parallel Data Compression（块内压缩和解压）"></a>Empirical Speedup Study of Truly Parallel Data Compression（块内压缩和解压）</h1><h2 id="实验-3"><a href="#实验-3" class="headerlink" title="实验"></a>实验</h2><ul>
+<li><p>在XML计算平台的64-TCU FPGA上运行时，解压性能总体上看甚至略微下降了；在模拟的1024-TCU上运行时有提升</p>
+<p><img src="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230223180343381.png" alt="image-20230223180343381"></p>
+</li>
+<li><p><strong>思考：这个是在专用的并行计算平台上运行的结果，对移动端的参考价值？</strong></p>
+</li>
+</ul>
+<h1 id="Parallelizing-Bzip2-A-Case-Study-in-Multicore-Software-Engineering（学生作品）"><a href="#Parallelizing-Bzip2-A-Case-Study-in-Multicore-Software-Engineering（学生作品）" class="headerlink" title="Parallelizing Bzip2: A Case Study in Multicore Software Engineering（学生作品）"></a>Parallelizing Bzip2: A Case Study in Multicore Software Engineering（学生作品）</h1><h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><ul>
+<li>一个多核软件工程课程的最后三周，8名计算机科学专业的研究生2人一组进行比赛，对bzip2算法进行并行化</li>
+<li>针对压缩</li>
+</ul>
+<h2 id="Team-1"><a href="#Team-1" class="headerlink" title="Team 1"></a>Team 1</h2><ul>
+<li>发现细粒度的并行化不合适，需要大量努力重构代码</li>
+<li>尝试用类重构，但最后ddl到了还是换回没有类的版本，整合了<strong>Bzip2SMP</strong>的一些并行化思想</li>
+</ul>
+<h2 id="Team-2（winner）"><a href="#Team-2（winner）" class="headerlink" title="Team 2（winner）"></a>Team 2（winner）</h2><ul>
+<li>重构花了很长时间，最后一天才写并行</li>
+<li>生产者-消费者模式+pthreads</li>
+<li>流水线没时间写了</li>
+</ul>
+<h2 id="Team-3"><a href="#Team-3" class="headerlink" title="Team 3"></a>Team 3</h2><ul>
+<li>master-worker方法<ul>
+<li>master程序向一个缓冲区填充块，worker程序从缓冲区中取出块来进行压缩</li>
+<li>线程同步和文件顺序输出遇到困难</li>
+</ul>
+</li>
+<li>超时了</li>
+</ul>
+<h2 id="Team-4"><a href="#Team-4" class="headerlink" title="Team 4"></a>Team 4</h2><ul>
+<li>用openmp，性能较差</li>
+<li>大部分时间花在理解代码</li>
+</ul>
+<h2 id="Lessons-Learned"><a href="#Lessons-Learned" class="headerlink" title="Lessons Learned"></a>Lessons Learned</h2><ul>
+<li><p>并行化之前需要重构代码</p>
+</li>
+<li><p>增量并行化没有作用</p>
+<ul>
+<li>例如用OpenMP在代码开头加pragma</li>
+</ul>
+</li>
+<li><p>研究关键路径行不通</p>
+<ul>
+<li>例如用profile工具</li>
+<li>顺序实现通常涉及设计选择，排除了并行化可能需要的自由度</li>
+<li>因此，仅仅研究顺序实现是不够的，还需要研究规范</li>
+</ul>
+</li>
+<li><p>细粒度并行不是唯一选择</p>
+<ul>
+<li>例如，关键路径上循环的并行化只产生很小的速度提升</li>
+</ul>
+</li>
+<li><p>寻找高层次并行化</p>
+<ul>
+<li>例如，引入<strong>生产者-消费者模式或者master-worker模式</strong></li>
+<li>代码实现涉及的细节更多</li>
+</ul>
+</li>
+<li><p>试错是有风险的</p>
+</li>
+<li><p>并行化不是黑色艺术</p>
+</li>
+</ul>
+<h2 id="Advice"><a href="#Advice" class="headerlink" title="Advice"></a>Advice</h2><ul>
+<li><p>并行时考虑多个层次</p>
+<ul>
+<li>不然就会“一分钱一分货”</li>
+</ul>
+</li>
+<li><p>如果从0开始写顺序代码，要为并行化考虑</p>
+</li>
+<li><p>多练习</p>
+</li>
+</ul>
+<h1 id="相关前置知识"><a href="#相关前置知识" class="headerlink" title="相关前置知识"></a>相关前置知识</h1><ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://blog.csdn.net/weixin_43838265/article/details/117324663">自适应（动态）哈夫曼编码与解码过程_菜鸟的逆袭之路的博客-CSDN博客_动态哈夫曼编码</a><ul>
+<li><em>Parallel algorithms for Burrows–Wheeler compression and decompression</em>中使用的Huffman编码是动态的，因为没有提到要存Huffman树</li>
+</ul>
+</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://zhuanlan.zhihu.com/p/91089093">并行算法科普向 系列之二：前缀和，fork-join 和矩阵乘法 - 知乎 (zhihu.com)</a></li>
+<li>值预测算法：见文章<em>Value Prediction for Speculative Multithreaded Architectures</em><ul>
+<li><em>Practical Speculative Parallelization of Variable-Length Decompression Algorithms</em>中提到值预测算法不可用</li>
+<li>值预测技术基于以下推测：在大量的时间内，值倾向于重复，或者遵循一个已知的模式。因此，如果使用恰当的机制，值可能能够被正确地预测。这些机制的基础是存储反映近期观察到的历史信息的表格</li>
+<li>分类<ul>
+<li>基于指令的值预测器</li>
+<li>基于追踪的值预测器</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="相关实现"><a href="#相关实现" class="headerlink" title="相关实现"></a>相关实现</h1><h2 id="bwtzip"><a href="#bwtzip" class="headerlink" title="bwtzip"></a>bwtzip</h2><ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://nuwen.net/bwtzip.html">bwtzip - nuwen.net</a></li>
+<li>他是高度模块化的，或许可以帮助我后续的代码重构和实现</li>
+</ul>
+<h1 id="相关会议"><a href="#相关会议" class="headerlink" title="相关会议"></a>相关会议</h1><ul>
+<li>Data Compression Conference：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://ieeexplore.ieee.org/xpl/conhome/9810654/proceeding">IEEE Xplore - Conference Table of Contents</a></li>
+</ul>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    raft相关问题
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">bsdiff相关论文阅读笔记</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

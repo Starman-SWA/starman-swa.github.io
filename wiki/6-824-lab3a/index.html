@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>6.824 lab3a | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="Raft,Go,KV数据库">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="简介相关资料MIT 6.824 Lab3 翻译（Key&#x2F;Value Server Base on Raft） - 知乎 (zhihu.com) 实现踩坑过程首先按照自己的思路进行了基本实现，踩了许多坑。 错误1：  Test: one client (3A) 2022&#x2F;12&#x2F;06 17:12:56 2 server: Get RPC opf.opIndex&#x3D;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="6.824 lab3a">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/6-824-lab3a/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="简介相关资料MIT 6.824 Lab3 翻译（Key&#x2F;Value Server Base on Raft） - 知乎 (zhihu.com) 实现踩坑过程首先按照自己的思路进行了基本实现，踩了许多坑。 错误1：  Test: one client (3A) 2022&#x2F;12&#x2F;06 17:12:56 2 server: Get RPC opf.opIndex&#x3D;">
+<meta property="og:locale">
+<meta property="article:published_time" content="2023-01-15T10:28:26.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.456Z">
+<meta property="article:tag" content="Raft">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="KV数据库">
+<meta name="twitter:card" content="summary">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file active"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-6-824-lab3a" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/Go/" rel="tag">Go</a>, <a class="tag-link-link" href="/tags/KV%E6%95%B0%E6%8D%AE%E5%BA%93/" rel="tag">KV数据库</a>, <a class="tag-link-link" href="/tags/Raft/" rel="tag">Raft</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/6-824-lab3a/">
+            <time datetime="2023-01-15T10:28:26.000Z" itemprop="datePublished">2023-01-15</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/6-824-lab3a.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/6-824-lab3a.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/6-824-lab3a.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            6.824 lab3a
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://zhuanlan.zhihu.com/p/267685488">MIT 6.824 Lab3 翻译（Key&#x2F;Value Server Base on Raft） - 知乎 (zhihu.com)</a></p>
+<h1 id="实现踩坑过程"><a href="#实现踩坑过程" class="headerlink" title="实现踩坑过程"></a>实现踩坑过程</h1><p>首先按照自己的思路进行了基本实现，踩了许多坑。</p>
+<p>错误1：</p>
+<blockquote>
+<p>Test: one client (3A)</p>
+<p>2022&#x2F;12&#x2F;06 17:12:56 2 server: Get RPC opf.opIndex&#x3D;&#x3D;3 but args.OpIndex&#x3D;&#x3D;5</p>
+</blockquote>
+<p>原因：对于opIndex &#x3D;&#x3D; maxOpIndex的情况，这条指令也已经在raft层中Start一次commit了，也需要读取applyCh，而我忘记了。</p>
+<p>错误2：</p>
+<blockquote>
+<p>Test: progress in majority (3A)</p>
+<p>2022&#x2F;12&#x2F;06 18:22:20 2 server: Get RPC opf.opIndex&#x3D;&#x3D;1 but args.OpIndex&#x3D;&#x3D;2, opf&#x3D;&#x3D;{1 Put 1 14}</p>
+</blockquote>
+<p>发现我忘了一件事情：就算不是leader，也要apply来自raft的日志（已实现，用一个goroutine来定期apply）</p>
+<p>错误3：</p>
+<blockquote>
+<p>— FAIL: TestUnreliable3A (5.24s)<br> test_test.go:293: get wrong value, key 3, wanted:<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 7 y<br> , got<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 6 yx 3 7 y<br> test_test.go:293: get wrong value, key 1, wanted:<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 9 yx 1 10 y<br> , got<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 8 yx 1 9 yx 1 9 yx 1 10 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 1 8 y in Append result</p>
+</blockquote>
+<p>当网络不稳定时，有一些指令被重复执行了。发现在server的RPC处理当中，我应该把判断OpIndex的逻辑写到Start前面，不然由于applyCh是单独的goroutine读取，在Start之后还是会重复执行提交但未回复的指令。</p>
+<p>错误4：</p>
+<blockquote>
+<p>Test: completion after heal (3A) …</p>
+<p>— FAIL: TestOnePartition3A (6.21s)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">test_test.go:539: Put did not complete</span><br></pre></td></tr></table></figure>
+</blockquote>
+<p>发现没有实现超时机制。设计了一个map，保存每个client对应的已applied的opf，由RPC handler尝试读取，直至超时。实现超时后仍通不过，调试发现kv.maxOpIndexs应该写在applyLogs()协程里面。修改后通过该测试样例及之前的所有样例。</p>
+<p>错误5：</p>
+<blockquote>
+<p>— FAIL: TestManyPartitionsOneClient3A (14.86s)<br> test_test.go:293: get wrong value, key 0, wanted:<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 y<br> , got<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 yx 0 25 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 0 25 y in Append result</p>
+</blockquote>
+<p>在Partition测试中又出现重复写入。在applyLogs中去重后又发现：client让某个partition A apply了一个操作，当这个partition A和另一个partition B合并时，领导者变成了partition B的成员，但partition A的maxOpIndex更新，导致partition A无法执行新命令。</p>
+<p>发现applyLogs的sleep应该删掉，否则apply太慢了。但是错误仍未解决。</p>
+<p>继续跟踪Raft发现，旧leader向大多数节点append一个指令对应的日志成功后，在本地状态机进行了commit，并进行了apply，使得K&#x2F;V层的指令执行成功。但commit之后还来不及通过心跳或appendEntries让其他节点接收到leaderCommit，就变更领导者了，由于新领导者认为这个命令还未apply，所以无法执行后续指令。这应该就是实验指南和论文中提到的领导者变更问题。为了确保我的Raft实现没问题，用网上的lab3代码跑了一下3A，确定能够通过测试，从而将问题焦点落在server的实现上。</p>
+<p>将代码进行了进一步检查和修改，又倒腾了一下午debug，终于通过所有算例。完整实现思路以下一章为准。</p>
+<h1 id="完整设计思路"><a href="#完整设计思路" class="headerlink" title="完整设计思路"></a>完整设计思路</h1><h2 id="Client"><a href="#Client" class="headerlink" title="Client"></a>Client</h2><p>Client向任意服务器发送请求，请求失败则换服务器重试，直到请求成功为止。每个Client以创建时的时间戳作为其ID，请求序号从1递增。</p>
+<h2 id="Server"><a href="#Server" class="headerlink" title="Server"></a>Server</h2><p>server数据结构：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> KVServer <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu      sync.Mutex</span><br><span class="line">    me      <span class="type">int</span></span><br><span class="line">    rf      *raft.Raft</span><br><span class="line">    applyCh <span class="keyword">chan</span> raft.ApplyMsg</span><br><span class="line">    dead    <span class="type">int32</span> <span class="comment">// set by Kill()</span></span><br><span class="line"></span><br><span class="line">    maxraftstate <span class="type">int</span> <span class="comment">// snapshot if log grows this big</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Your definitions here.</span></span><br><span class="line">    table <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span> <span class="comment">// the database</span></span><br><span class="line">    <span class="comment">// appliedLogs   string // for test</span></span><br><span class="line">    maxOpIndexs   <span class="keyword">map</span>[<span class="type">int</span>]<span class="type">int</span> <span class="comment">// the latest operation that server has applied for each client</span></span><br><span class="line">    clientApplied <span class="keyword">map</span>[<span class="type">int</span>]<span class="keyword">chan</span> OpFields</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>table为存储K&#x2F;V对的哈希表，maxOpIndexs保存每个客户端已经applied的最大请求编号，clientApplied用于在server成功apply一个请求的时候通知Get&#x2F;PutAppend handler。</p>
+<p>用于apply从Raft端提交的日志的go routine如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(kv *KVServer)</span></span> applyLogs() &#123;</span><br><span class="line">    <span class="keyword">for</span> kv.killed() == <span class="literal">false</span> &#123;</span><br><span class="line">        applyMsg := &lt;-kv.applyCh</span><br><span class="line"></span><br><span class="line">        op, ok := applyMsg.Command.(Op)</span><br><span class="line">        <span class="keyword">if</span> !ok &#123;</span><br><span class="line">            log.Fatal(errors.New(<span class="string">&quot;applyMsg type error&quot;</span>))</span><br><span class="line">        &#125;</span><br><span class="line">        opf := op.DecodeOp()</span><br><span class="line"></span><br><span class="line">        DPrintf(<span class="string">&quot;%v server: applyCh receive logIdx: %v, OpIndex: %v, Key: %v, value: %v, ClientId: %v\n&quot;</span>, kv.me, applyMsg.CommandIndex, opf.opIndex, opf.key, opf.value, opf.ckId)</span><br><span class="line">        kv.mu.Lock()</span><br><span class="line">        <span class="keyword">if</span> opf.opIndex &gt; kv.maxOpIndexs[opf.ckId] &#123;</span><br><span class="line">            kv.OperatePutAppend(opf)</span><br><span class="line">            kv.maxOpIndexs[opf.ckId] = opf.opIndex</span><br><span class="line">        &#125;</span><br><span class="line">        kv.mu.Unlock()</span><br><span class="line"></span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> kv.clientApplied[opf.ckId] &lt;- opf:</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当Raft提交上来的日志编号大于当前应用的最大编号时，server才将其执行，以避免重复。然后，server借助kv.clientApplied中的channel告知Get&#x2F;PutAppend Handler请求已被提交。</p>
+<p>这里的一个问题是为什么满足<code>opf.opIndex &gt; kv.maxOpIndexs[opf.ckId]</code>的请求就可以执行，而不需要<code>opf.opIndex == kv.maxOpIndexs[opf.ckId]+1</code>。这是我之前调试时一直犯的错误。我举个例子，假设当前对于某个客户端，MaxOpIndex为1，而opf.opIndex为3，那么此时有可能2还没有执行完，正在处于重试阶段，而用户就又输入了第三条指令。因此上述语句只需要保证不重复执行就行，而无需按照OpIndex顺序执行。</p>
+<p>Get&#x2F;PutAppend Handler执行过程如下：</p>
+<ol>
+<li><p>调用Start</p>
+</li>
+<li><p>通过Start的返回值判断是否为leader，若不为leader直接返回</p>
+</li>
+<li><p>判断是否<code>args.OpIndex == kv.maxOpIndexs[args.ClientId]</code>，若满足，则是论文中所提到的这条指令已经应用但未回复客户端的情况。此时直接回复即可。</p>
+</li>
+<li><p>在clientApplied中创建一个channel用于唤醒</p>
+</li>
+<li><p>使用select语句从channel中读取。若在规定时间内读取成功，需满足<code>opf.opIndex &gt;= args.OpIndex</code>才能回复成功；若读取超时，则回复Wrong Leader。</p>
+</li>
+<li><p>删除这个channel</p>
+</li>
+</ol>
+<h2 id="关于加锁"><a href="#关于加锁" class="headerlink" title="关于加锁"></a>关于加锁</h2><p>Client中的锁只作用与序列号，而没有作用于整个过程。这代表一个指令执行过程中，还可以交叉执行其他指令。指令最终在K&#x2F;V数据库中作用的顺序以指令开始被请求的顺序，即加锁确定序列号的前后顺序为准。</p>
+<p>Server同理。</p>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/6-824-lab3b/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    6.824 lab3b
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">Paxos算法笔记</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

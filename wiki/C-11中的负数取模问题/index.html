@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>C++11中的负数取模问题 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="C++11,进制转换,负数取模">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="今天在做1017. 负二进制转换 - 力扣（Leetcode）的时候涉及到了负数取模问题，逼迫我对这个知识点进行了学习。 题目描述如下：   给你一个整数 n ，以二进制字符串的形式返回该整数的 负二进制（base -2）表示。 注意，除非字符串就是 &quot;0&quot;，否则返回的字符串中不能含有前导零。 示例 1： 123输入：n &#x3D; 2输出：&quot;110&quot;解释：(-2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C++11中的负数取模问题">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="今天在做1017. 负二进制转换 - 力扣（Leetcode）的时候涉及到了负数取模问题，逼迫我对这个知识点进行了学习。 题目描述如下：   给你一个整数 n ，以二进制字符串的形式返回该整数的 负二进制（base -2）表示。 注意，除非字符串就是 &quot;0&quot;，否则返回的字符串中不能含有前导零。 示例 1： 123输入：n &#x3D; 2输出：&quot;110&quot;解释：(-2">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406133817963.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406140637592.png">
+<meta property="article:published_time" content="2023-04-06T05:29:22.000Z">
+<meta property="article:modified_time" content="2023-04-06T06:08:43.153Z">
+<meta property="article:tag" content="C++11">
+<meta property="article:tag" content="进制转换">
+<meta property="article:tag" content="负数取模">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406133817963.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file active"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-C-11中的负数取模问题" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/C/">C++</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/C-11/" rel="tag">C++11</a>, <a class="tag-link-link" href="/tags/%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1/" rel="tag">负数取模</a>, <a class="tag-link-link" href="/tags/%E8%BF%9B%E5%88%B6%E8%BD%AC%E6%8D%A2/" rel="tag">进制转换</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">
+            <time datetime="2023-04-06T05:29:22.000Z" itemprop="datePublished">2023-04-06</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/C-11中的负数取模问题.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/C-11中的负数取模问题.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/C-11中的负数取模问题.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            C++11中的负数取模问题
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+                <div id="toc" class="toc-article">
+                <strong class="toc-title">Catálogo</strong>
+                    
+                </div>
+            
+        
+        
+            <ul>
+<li>今天在做<a target="_blank" rel="external nofollow noopener noreferrer" href="https://leetcode.cn/problems/convert-to-base-2/description/">1017. 负二进制转换 - 力扣（Leetcode）</a>的时候涉及到了负数取模问题，逼迫我对这个知识点进行了学习。</li>
+<li>题目描述如下：</li>
+</ul>
+<blockquote>
+<p>给你一个整数 <code>n</code> ，以二进制字符串的形式返回该整数的 <strong>负二进制（<code>base -2</code>）</strong>表示。</p>
+<p><strong>注意，</strong>除非字符串就是 <code>&quot;0&quot;</code>，否则返回的字符串中不能含有前导零。</p>
+<p><strong>示例 1：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">输入：n = 2</span><br><span class="line">输出：&quot;110&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 = 2</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例 2：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">输入：n = 3</span><br><span class="line">输出：&quot;111&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 + (-2)^0 = 3</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例 3：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">输入：n = 4</span><br><span class="line">输出：&quot;100&quot;</span><br><span class="line">解释：(-2)^2 = 4</span><br></pre></td></tr></table></figure>
+</blockquote>
+<ul>
+<li>一种最简单的解法如下：</li>
+</ul>
+<blockquote>
+<p>与转化为二进制没什么区别，都是除基取余，倒序排列。<br>不过负二进制的余数可能有0，1，-1，而表示上不能有负数，所以在余数为-1时，要转化为1，同时商+1即可</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">string <span class="title">baseNeg2</span><span class="params">(<span class="type">int</span> n)</span> </span>&#123;</span><br><span class="line">        string ans;</span><br><span class="line">        <span class="keyword">while</span>(n)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="type">int</span> remain=n%(<span class="number">-2</span>);</span><br><span class="line">            ans+=<span class="string">&#x27;0&#x27;</span>+<span class="built_in">abs</span>(remain);</span><br><span class="line">            n=remain&lt;<span class="number">0</span>?n/(<span class="number">-2</span>)+<span class="number">1</span>:n/(<span class="number">-2</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">reverse</span>(ans.<span class="built_in">begin</span>(),ans.<span class="built_in">end</span>());</span><br><span class="line">        <span class="keyword">return</span> ans.<span class="built_in">empty</span>()?<span class="string">&quot;0&quot;</span>:ans;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+</blockquote>
+<ul>
+<li>这里涉及到<code>n%(-2)</code>和<code>n/(-2)</code>的运算结果。C++ Primer第五版中是这么说的：</li>
+</ul>
+<blockquote>
+<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406133817963.png" alt="image-20230406133817963"></p>
+</blockquote>
+<ul>
+<li><p>C++ Primer中的这两段话可以归纳为如下两点：</p>
+<ol>
+<li><p>在C++11中，除法运算<code>m/n</code>的商一律向零取整。此时，<code>m/n</code>、<code>m/(-n)</code>、<code>(-m)/n</code>、<code>(-m)/(-n)</code>这四个表达式的运算结果的绝对值均相等，运算结果的符号取决与被除数与除数是否同号，同号得正，异号得负。例如：21&#x2F;5&#x3D;4，21&#x2F;(-5)&#x3D;-4，-21&#x2F;5&#x3D;-4，-21&#x2F;(-5)&#x3D;4。换言之，<strong>商的绝对值乘以除数的绝对值一定不超过但最接近被除数的绝对值</strong>。</p>
+</li>
+<li><p>根据1可以推出，取模运算<code>m%n</code>的结果永远与<code>m</code>同号</p>
+</li>
+</ol>
+</li>
+<li><p>回到LeetCode 1017这道题。当我们使用”除-2取余法“时，可能得到的余数为0、1、-1。由于最终结果为“-2的非负整数次幂相加”的形式，当余数为0或1时，可以直接作为结果中的一位；当余数为-1时，必须将其转换为非负数，方法为：让被除数多除一个-2，商加1，由于多除了一个-2，余数就需要减去一个-2，即余数-1加上2变为1。</p>
+</li>
+<li><p>本质上，解决这道题需要使用“正数除以负数，商向0取整；负数除以负数，商向无穷取整”的除法规则进行除-2取余，这样得到的所有余数都是正的，能够组合成“-2的非负整数次幂相加”的形式。然而由于C++11标准的除法一律向0取整，我们需要在每次得到负余数的时候多进行一次调整，以符合题目要求的除法规则。</p>
+</li>
+<li><p>为加深理解，再附上C++17中不同整数除以-2的运行结果：</p>
+</li>
+</ul>
+<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406140637592.png" alt="image-20230406140637592"></p>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+    
+        <a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">raft相关问题</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

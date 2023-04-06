@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>区间调度问题 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="贪心">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="一、区间不相交问题 给出N个开区间(start, end)，从中选择尽可能多的区间，使得这些区间两两不相交。  解决思路是将区间集合S中的所有区间按照end值从小到大的顺序进行排序，然后执行下列步骤：  从区间集合S中选取end值最小的区间i，将i加入区间集合T。 寻找与i相交的所有区间，将这些区间从集合S中删除。 若S非空，跳转到步骤1。  区间T即为所求。 证明思路可以考虑反证法：假设某一次选">
+<meta property="og:type" content="article">
+<meta property="og:title" content="区间调度问题">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="一、区间不相交问题 给出N个开区间(start, end)，从中选择尽可能多的区间，使得这些区间两两不相交。  解决思路是将区间集合S中的所有区间按照end值从小到大的顺序进行排序，然后执行下列步骤：  从区间集合S中选取end值最小的区间i，将i加入区间集合T。 寻找与i相交的所有区间，将这些区间从集合S中删除。 若S非空，跳转到步骤1。  区间T即为所求。 证明思路可以考虑反证法：假设某一次选">
+<meta property="og:locale">
+<meta property="article:published_time" content="2020-12-28T14:58:17.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.498Z">
+<meta property="article:tag" content="贪心">
+<meta name="twitter:card" content="summary">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file active"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-区间调度问题" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E7%AE%97%E6%B3%95/">算法</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E8%B4%AA%E5%BF%83/" rel="tag">贪心</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">
+            <time datetime="2020-12-28T14:58:17.000Z" itemprop="datePublished">2020-12-28</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/区间调度问题.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/区间调度问题.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/区间调度问题.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            区间调度问题
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h2 id="一、区间不相交问题"><a href="#一、区间不相交问题" class="headerlink" title="一、区间不相交问题"></a>一、区间不相交问题</h2><blockquote>
+<p>给出N个开区间(start, end)，从中选择尽可能多的区间，使得这些区间两两不相交。</p>
+</blockquote>
+<p>解决思路是将区间集合S中的所有区间按照end值从小到大的顺序进行排序，然后执行下列步骤：</p>
+<ol>
+<li>从区间集合S中选取end值最小的区间i，将i加入区间集合T。</li>
+<li>寻找与i相交的所有区间，将这些区间从集合S中删除。</li>
+<li>若S非空，跳转到步骤1。</li>
+</ol>
+<p>区间T即为所求。</p>
+<p>证明思路可以考虑反证法：假设某一次选择的i的end值并不是集合S中最小的，如果存在与区间i相交且end值更小的区间i’，则选择i’所移除的区间数不会大于选择i所移除的区间数，此时选取end值更小的i’会使局部结果更优。</p>
+<p>实现如下：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> a[<span class="number">1</span>] &lt; b[<span class="number">1</span>];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> count = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt; intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ++count;</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="二、应用1：LeetCode-435-无重叠区间"><a href="#二、应用1：LeetCode-435-无重叠区间" class="headerlink" title="二、应用1：LeetCode 435 无重叠区间"></a>二、应用1：LeetCode 435 无重叠区间</h2><blockquote>
+<p>给定一个区间的集合，找到需要移除区间的最小数量，使剩余区间互不重叠。</p>
+</blockquote>
+<p>移除的最小区间数量就是区间总数减去剩余的最大区间数量。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">eraseOverlapIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> intervals.<span class="built_in">size</span>() - <span class="built_in">mostDisjointIntervals</span>(intervals);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="三、应用2：LeetCode-452-用最少数量的箭引爆气球"><a href="#三、应用2：LeetCode-452-用最少数量的箭引爆气球" class="headerlink" title="三、应用2：LeetCode 452 用最少数量的箭引爆气球"></a>三、应用2：LeetCode 452 用最少数量的箭引爆气球</h2><blockquote>
+<p>在二维空间中有许多球形的气球。对于每个气球，提供的输入是水平方向上，气球直径的开始和结束坐标。由于它是水平的，所以纵坐标并不重要，因此只要知道开始和结束的横坐标就足够了。开始坐标总是小于结束坐标。</p>
+<p>一支弓箭可以沿着 x 轴从不同点完全垂直地射出。在坐标 x 处射出一支箭，若有一个气球的直径的开始和结束坐标为 xstart，xend， 且满足  xstart ≤ x ≤ xend，则该气球会被引爆。可以射出的弓箭的数量没有限制。 弓箭一旦被射出之后，可以无限地前进。我们想找到使得所有气球全部被引爆，所需的弓箭的最小数量。</p>
+<p>给你一个数组 points ，其中 points [i] &#x3D; [xstart,xend] ，返回引爆所有气球所必须射出的最小弓箭数。</p>
+</blockquote>
+<p>在区间不相交问题中，每当选取一个区间时，与其相交的区间也会被移除。这相当于在本问题中，每射爆一个气球，与其相重叠的气球也会被射爆。因此两个问题是等价的，可以套用前面的代码，只不过本题中的区间是闭区间而不是开区间，需要修改边界条件。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ...</span><br><span class="line">        <span class="comment">// 将小于号改为小于等于号</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、变形1：LeetCode-56-合并区间"><a href="#四、变形1：LeetCode-56-合并区间" class="headerlink" title="四、变形1：LeetCode 56 合并区间"></a>四、变形1：LeetCode 56 合并区间</h2><blockquote>
+<p>给出一个区间的集合，请合并所有重叠的区间。</p>
+</blockquote>
+<p>本题仍是与区间重叠相关的问题，但是与上面三题有一点不同。上面三题的重叠区间是以某一个区间为参照的，也就是说所有的区间都必须与某一个特定的区间重叠。但是这一题不需要，对于所要合并的区间集合中的每一个区间，只需要与集合中的任意一个区间重叠即可。</p>
+<p>本题的算法核心仍是贪心，但是需要做出一点调整：对区间集合使用字典排序，即先比较start，按照start升序排列，若start值相同，再按end升序排列。这样排序的目的是使所有能够进行合并的区间相邻。排序后，从前往后遍历区间，将尽可能多的相邻的重叠区间合并成一个大区间。对于每个合并后的大区间，其start值就是最左侧的小区间的start，其end值是所有小区间当中end值最大的那个。故在遍历期间，需要维护变量maxEnd存储end值的最大值。</p>
+<p>题解如下，可见代码在上述三题的基础上修改了比较函数、内层循环的条件以及增加了maxEnd变量的维护：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (a[<span class="number">0</span>] &gt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">0</span>] &lt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">1</span>] &lt; b[<span class="number">1</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">merge</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> maxEnd = intervals[i][<span class="number">1</span>];</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= maxEnd)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (intervals[j][<span class="number">1</span>] &gt; maxEnd)</span><br><span class="line">            maxEnd = intervals[j][<span class="number">1</span>];</span><br><span class="line">            ++j;</span><br><span class="line">        &#125;  </span><br><span class="line">        ans.<span class="built_in">push_back</span>(vector&lt;<span class="type">int</span>&gt; &#123;intervals[i][<span class="number">0</span>], maxEnd&#125;);</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="五、变形2：LeetCode-57-插入区间"><a href="#五、变形2：LeetCode-57-插入区间" class="headerlink" title="五、变形2：LeetCode 57 插入区间"></a>五、变形2：LeetCode 57 插入区间</h2><blockquote>
+<p>给出一个<em>无重叠的 ，</em>按照区间起始端点排序的区间列表。</p>
+<p>在列表中插入一个新的区间，你需要确保列表中的区间仍然有序且不重叠（如果有必要的话，可以合并区间）。</p>
+</blockquote>
+<p>这道题的难度为“困难”，但是相比之前的几道题目其实反而不需要用到什么特别的算法，只需从左到右遍历区间集合，找到新区间的插入位置并进行（可能的）合并操作。题目给的区间集合是<strong>无重叠</strong>的，因此省去了存储maxEnd的步骤，只需考虑边界条件进行适当的分类讨论即可。我的代码较为复杂，还可以进一步简化。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">insert</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals, vector&lt;<span class="type">int</span>&gt;&amp; newInterval)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> inserted = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (!inserted)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (newInterval[<span class="number">0</span>] &gt; intervals[i][<span class="number">1</span>])</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (newInterval[<span class="number">1</span>] &gt;= intervals[i][<span class="number">0</span>])</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= newInterval[<span class="number">1</span>])</span><br><span class="line">                    ++j;</span><br><span class="line">                <span class="type">int</span> newStart = <span class="built_in">min</span>(newInterval[<span class="number">0</span>], intervals[i][<span class="number">0</span>]);</span><br><span class="line">                <span class="keyword">if</span> (j == i + <span class="number">1</span>)</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[i][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                &#123;</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[j - <span class="number">1</span>][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                &#125;</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">                i = j;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">            &#123;</span><br><span class="line">                ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!inserted)</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    两道求最大面积的题目在解法上的不同
+                
+            </div>
+        </a>
+    
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

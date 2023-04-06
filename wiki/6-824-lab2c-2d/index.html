@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>6.824 lab2c, 2d | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="Raft,Go">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="Lab 2C实验2C要求实现Raft服务器currentTerm、votedFor和log三个状态的持久化，难度不高，只需要填充相应函数，并在每次回复RPC之前和这三个状态被修改之后调用持久化函数。 但实验2C的测试还是有可能因为2A、2B的实现不完善而发生错误。 我在测试时多次碰到该错误：  — FAIL: TestFigure8Unreliable2C (41.85s)config.go:60">
+<meta property="og:type" content="article">
+<meta property="og:title" content="6.824 lab2c, 2d">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/6-824-lab2c-2d/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="Lab 2C实验2C要求实现Raft服务器currentTerm、votedFor和log三个状态的持久化，难度不高，只需要填充相应函数，并在每次回复RPC之前和这三个状态被修改之后调用持久化函数。 但实验2C的测试还是有可能因为2A、2B的实现不完善而发生错误。 我在测试时多次碰到该错误：  — FAIL: TestFigure8Unreliable2C (41.85s)config.go:60">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/6-824-lab2c-2d/raft_diagram_1.png">
+<meta property="article:published_time" content="2022-11-10T16:52:35.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.453Z">
+<meta property="article:tag" content="Raft">
+<meta property="article:tag" content="Go">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/6-824-lab2c-2d/raft_diagram_1.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file active"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-6-824-lab2c-2d" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/Go/" rel="tag">Go</a>, <a class="tag-link-link" href="/tags/Raft/" rel="tag">Raft</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/6-824-lab2c-2d/">
+            <time datetime="2022-11-10T16:52:35.000Z" itemprop="datePublished">2022-11-11</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/6-824-lab2c-2d.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/6-824-lab2c-2d.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/6-824-lab2c-2d.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            6.824 lab2c, 2d
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="Lab-2C"><a href="#Lab-2C" class="headerlink" title="Lab 2C"></a>Lab 2C</h1><p>实验2C要求实现Raft服务器currentTerm、votedFor和log三个状态的持久化，难度不高，只需要填充相应函数，并在<strong>每次回复RPC之前</strong>和<strong>这三个状态被修改之后</strong>调用持久化函数。</p>
+<p>但实验2C的测试还是有可能因为2A、2B的实现不完善而发生错误。</p>
+<p>我在测试时多次碰到该错误：</p>
+<blockquote>
+<p>— FAIL: TestFigure8Unreliable2C (41.85s)<br>config.go:609: one(5768) failed to reach agreement</p>
+</blockquote>
+<p>经过调试和查阅资料，发现了之前实验的两个错误实现：</p>
+<ul>
+<li>在AppendEntries RPC当中直接将prevLogIndex之后的所有条目截断。当领导者向参与者发送的AppendEntries请求过期，其中包含的日志条目是参与者日志条目的子集的时候，这种实现会导致参与者的一部分正确日志被舍弃。正确的实现方法是严格按照论文，只截断冲突的日志。</li>
+<li>原实现中，领导者收到AppendEntries的成功响应之后会执行<code>nextIndex += len(args.Entries)</code>。然而领导者在发送RPC之前已经释放了互斥锁，其nextIndex有可能被修改。正确实现应该是<code>nextIndex = prevLogIndex + len(args.Entries) + 1</code>。</li>
+</ul>
+<p>此外，还进行了下列优化，顺利一次性通过了2A、2B、2C：</p>
+<ul>
+<li><p>TIME_STEP设为10ms，原实现与心跳超时相同。</p>
+</li>
+<li><p>选举超时设为[300, 450]ms，心跳超时设置为50ms。</p>
+</li>
+</ul>
+<h1 id="Lab-2D"><a href="#Lab-2D" class="headerlink" title="Lab 2D"></a>Lab 2D</h1><p>实验2D要求实现快照功能。</p>
+<p>实验官网的Hint给出了实现思路，按照思路，第一步是实现日志下标不从0开始存储。在我之前的实验中，日志下标以条目中的<code>CommandIndex</code>字段为准，故不需要做太多的修改。我原本的思路是在Raft状态中新增<code>lastIncludedIndex</code>和<code>lastIncludedTerm</code>两个字段，后来发现直接使用<code>rf.log[0].CommandIndex</code>和<code>rf.log[0].CommandTerm</code>来存储可以避免许多判断。</p>
+<p>然而当我实现了第一步之后再去跑2C的测试时，发现总是会发生apply不一致或者不能reach agreement的错误，经过一番调试之后最终发现是<code>AppendEntries()</code>当中一个if的判断条件写错了，把<code>args.Entries</code>的长度写成了<code>rf.log</code>的长度。。。。。。。。。修改此bug后，顺利通过10次2C测试。</p>
+<p>在跑2D的测试时发现另外的问题：当需要snapshot的时候，applyCh会阻塞，导致整个applyLogs线程阻塞。而由于applyLogs线程持有了互斥锁，因此整个服务器都会阻塞。解决方法是使用select语句：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> &#123;</span><br><span class="line"><span class="keyword">case</span> rf.applyCh &lt;- log:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log success, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line"><span class="keyword">default</span>:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log fail due to block, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line">    rf.lastApplied--</span><br><span class="line">    <span class="keyword">goto</span> applyLogsLoopExit</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当case中的写通道指令被阻塞时，select会转而执行default分支。需要注意不能在default分支中写break来退出外层循环，break的作用范围仅限于select，应该使用goto。</p>
+<hr>
+<p>实现日志的部分存储之后就可以着手开始实现Snapshot函数和InstallSnapshot RPC。实现前，要先理解Snapshot的指令和数据流向：上层应用在不需要前一部分的日志时，会调用Raft的<code>Snapshot</code>方法，其<code>snapshot</code>参数是上层应用已经创建好的快照。<code>Snapshot</code>方法需要做的是：截断日志，然后将快照<code>snapshot</code>持久化到持久性存储当中。当领导者发现某个参与者的<code>nextIndex</code>小于等于当前的<code>lastIncludedIndex</code>时，需要发送InstallSnapshot RPC，此时通过<code>Persister.ReadSnapshot</code>方法可从持久化存储中读取快照进行发送。</p>
+<p>由config.go第247行还可以知道：<code>snapshot</code>字节数组使用labgob包编解码，首先包含<code>lastIncludedIndex</code>数值，然后顺序包含<code>lastIncludedIndex</code>及之前的所有日志条目。</p>
+<hr>
+<p>Snapshot的函数调用关系比较难理解，需要参考<a target="_blank" rel="external nofollow noopener noreferrer" href="https://pdos.csail.mit.edu/6.824/notes/raft_diagram.pdf">Raft Diagram</a>。</p>
+<img src="raft_diagram_1.png">
+
+<ul>
+<li><p>Service为使用Raft Code作为其一致性协议的上层应用，可以是K&#x2F;V数据库等。</p>
+</li>
+<li><p>为了避免在Raft Code的内存中保留过长的日志条目，Service会定期将已经apply的一部分日志转换为snapshot。<strong>Snapshot的创建仅由Service执行。</strong>当Snapshot被创建之后，Service会调用<code>Snapshot()</code>方法通知Raft Code对其内存中的日志条目进行截断，方法的参数为已经创建的snapshot字节切片，以及<code>lastIncludedIndex</code>。</p>
+</li>
+<li><p>Raft Code接收到Service的<code>Snapshot()</code>请求之后，对其日志中下标为<code>lastIncludedIndex</code>及之前的条目截断，<strong>并将snapshot保存到内存当中，用于可能的InstallSnapshot RPC</strong>。当Raft Code接收到snapshot后，需要立即将其持久化。</p>
+</li>
+<li><p>Raft Code崩溃重启时，Service会调用<code>ReadSnapshot()</code>方法读取已经保存的snapshot，<strong>并进行apply，Raft Code无需再apply这部分状态</strong>。<strong>然而，为了用于可能的InstallSnapshot RPC，Raft Code也需要立即调用<code>ReadSnapshot()</code>方法将snapshot保存到内存中，注意这个调用关系在Raft Diagram当中没有体现</strong>。</p>
+</li>
+<li><p>如果领导者的<code>nextIndex[i]</code>小于等于<code>lastIncludedIndex</code>，说明此时节点i由于某种原因严重落后，需要领导者的snapshot中的日志条目。领导者发送<code>InstallSnapshot RPC</code>给节点i。</p>
+</li>
+<li><p>节点i收到<code>InstallSnapshot RPC</code>请求后，<strong>将snapshot通过applyCh应用到Service的状态机上</strong>。然后，Service会调用<code>CondInstallSnapshot()</code>告知Raft Code其已经将刚刚传入的snapshot应用，该方法为旧版6.824实验中的冗余要求，直接返回<code>true</code>即可。</p>
+</li>
+</ul>
+<hr>
+<p>在熟悉以上架构的基础上就可以很容易地写出代码。同样的，创建一个后台goroutine，重复检查领导者的<code>nextIndex</code>数组，当发现<code>nextIndex[i]&lt;=lastIncludedIndex</code>的时候开始发送<code>InstallSnapshot RPC</code>。</p>
+<p>可能会出错的地方有：</p>
+<ul>
+<li><p>每次调用<code>rf.persister.SaveStateAndSnapshot()</code>方法的时候都必须传入当前内存中的snapshot，不能在不需要更新snapshot的时候传入nil，否则会覆盖持久化存储当中的snapshot。</p>
+</li>
+<li><p>当使用<code>labgob</code>包对snapshot进行解码之后，由于snapshot当中可能包含当前解码位置的指针，snapshot的二进制内容会发生变化。<code>InstallSnapshot RPC</code>接收者实现的第5个步骤需要用到snapshot的<code>lastIncludedIndex</code>，此时不能通过解码snapshot的方式读取该值，而必须使用<code>args.LastIncludedIndex</code>，否则会出错。</p>
+</li>
+<li><p>在<code>InstallSnapshot RPC</code>中，persist的时机很重要。必须保证在snapshot和rf.log[0]（即lastIncluded信息）同时更改之后才能persist，不能只更新了某个值就persist。</p>
+</li>
+<li><p>在领导者发送snapshot的不同chunk的过程中，必须保证参数中的<code>Term</code>、<code>LastIncludeIndex</code>和<code>LastIncludedTerm</code>保持不变，即使领导者的状态已经发生了改变。即要把这几个变量提出循环外。在发送snapshot的多个chunk的过程中，领导者的snapshot可能会发生追加，我目前采用的策略是继续发送原有的snapshot。猜测更好的策略应当是丢弃原有的snapshot，重新发送新的snapshot，以节省网络带宽。这一点留待后续优化。</p>
+</li>
+</ul>
+<hr>
+<h1 id="感想"><a href="#感想" class="headerlink" title="感想"></a>感想</h1><p>6.824的lab2到这里就告一段落了，总算是完整地实现了Raft算法，还蛮有成就感的。在完成这四个小实验的过程中，我也能明显地感觉到自己在代码调试能力和写作能力这两个方面的提升。代码调试上，面对密密麻麻，动辄几个GB的调试信息，我不再有畏难心理了。我学会了在代码恰当的地方输出结构化的调试信息，在调试信息中寻找关键点，进行调试。可以说，我离”松弛感“又更进一步了。在写作能力上，从lab2a到lab2d，我也在逐渐摆脱”报告文学“。总而言之，6.824陪伴我度过了一段快乐的时光。</p>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    Paxos算法笔记
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/6-824-lab2a-2b/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">6.824 lab2a, 2b</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

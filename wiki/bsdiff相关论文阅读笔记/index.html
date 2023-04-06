@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>bsdiff相关论文阅读笔记 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="差量压缩">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="基于play framework的APP托管平台的设计与实现（北京邮电大学 硕士论文 2018） bsdiff&#x2F;bspatch+Linux rsync  基于文件分块的大文件更新策略解决的问题 客户端使用bspatch进行解压时，内存消耗过大 客户端本地的旧文件可能不完整或者受损，而bspatch需要完整的源文件 频繁更新场景下，服务器需要多次进行bsdiff，消耗时间长；并且需要管理多">
+<meta property="og:type" content="article">
+<meta property="og:title" content="bsdiff相关论文阅读笔记">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="基于play framework的APP托管平台的设计与实现（北京邮电大学 硕士论文 2018） bsdiff&#x2F;bspatch+Linux rsync  基于文件分块的大文件更新策略解决的问题 客户端使用bspatch进行解压时，内存消耗过大 客户端本地的旧文件可能不完整或者受损，而bspatch需要完整的源文件 频繁更新场景下，服务器需要多次进行bsdiff，消耗时间长；并且需要管理多">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230302163437757.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303134313131.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303143043095.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303153404971.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303155411487.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303155658454.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303161203897-1678091281999-1.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303174541068.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303174825401.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230308200702138.png">
+<meta property="article:published_time" content="2023-03-21T13:57:13.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.476Z">
+<meta property="article:tag" content="差量压缩">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230302163437757.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file active"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-bsdiff相关论文阅读笔记" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB/">论文阅读</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E5%B7%AE%E9%87%8F%E5%8E%8B%E7%BC%A9/" rel="tag">差量压缩</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">
+            <time datetime="2023-03-21T13:57:13.000Z" itemprop="datePublished">2023-03-21</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/bsdiff相关论文阅读笔记.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/bsdiff相关论文阅读笔记.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/bsdiff相关论文阅读笔记.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            bsdiff相关论文阅读笔记
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="基于play-framework的APP托管平台的设计与实现（北京邮电大学-硕士论文-2018）"><a href="#基于play-framework的APP托管平台的设计与实现（北京邮电大学-硕士论文-2018）" class="headerlink" title="基于play framework的APP托管平台的设计与实现（北京邮电大学 硕士论文 2018）"></a>基于play framework的APP托管平台的设计与实现（北京邮电大学 硕士论文 2018）</h1><ul>
+<li>bsdiff&#x2F;bspatch+Linux rsync</li>
+</ul>
+<h2 id="基于文件分块的大文件更新策略"><a href="#基于文件分块的大文件更新策略" class="headerlink" title="基于文件分块的大文件更新策略"></a>基于文件分块的大文件更新策略</h2><h3 id="解决的问题"><a href="#解决的问题" class="headerlink" title="解决的问题"></a>解决的问题</h3><ol>
+<li>客户端使用bspatch进行解压时，内存消耗过大</li>
+<li>客户端本地的旧文件可能不完整或者受损，而bspatch需要完整的源文件</li>
+<li>频繁更新场景下，服务器需要多次进行bsdiff，消耗时间长；并且需要管理多个版本的差分包</li>
+</ol>
+<h3 id="基本思路"><a href="#基本思路" class="headerlink" title="基本思路"></a>基本思路</h3><ul>
+<li>服务端<ul>
+<li>对新文件进行滚动校验，生成校验表<ul>
+<li>两个校验表<ul>
+<li>弱校验：速度快但冲突概率高，采用Adler-32</li>
+<li>强校验：速度慢但冲突概率小，采用MD5</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>客户端<ul>
+<li>下载服务端的新文件校验表</li>
+<li>对本地文件进行滚动校验（先弱校验，如命中再强校验）<ul>
+<li>如果两次校验的结果在新文件校验表中均命中，则将该块标记为匹配部分，指针后移一个块</li>
+<li>如果未命中，则将该字节标记为不匹配，指针后移一个字节</li>
+</ul>
+</li>
+<li>从服务器下载未匹配的部分</li>
+<li>将下载到的未匹配部分与本地的匹配部分进行合成</li>
+</ul>
+</li>
+</ul>
+<h1 id="A-Software-Update-Scheme-by-Airwaves-for-Automotive-Equipment（2013-International-Conference-on-Informatics-Electronics-and-Vision-ICIEV-）"><a href="#A-Software-Update-Scheme-by-Airwaves-for-Automotive-Equipment（2013-International-Conference-on-Informatics-Electronics-and-Vision-ICIEV-）" class="headerlink" title="A Software Update Scheme by Airwaves for Automotive Equipment（2013 International Conference on Informatics, Electronics and Vision (ICIEV)）"></a>A Software Update Scheme by Airwaves for Automotive Equipment（<a target="_blank" rel="external nofollow noopener noreferrer" href="https://ieeexplore.ieee.org/xpl/conhome/6558542/proceeding">2013 International Conference on Informatics, Electronics and Vision (ICIEV)</a>）</h1><h2 id="解决的问题-1"><a href="#解决的问题-1" class="headerlink" title="解决的问题"></a>解决的问题</h2><ul>
+<li>将bsdiff&#x2F;bspatch应用到汽车上会面临着几个问题：<ul>
+<li>内存限制</li>
+<li>不稳定的电源供应</li>
+<li>不稳定的无线电波传输</li>
+</ul>
+</li>
+</ul>
+<h2 id="方法"><a href="#方法" class="headerlink" title="方法"></a>方法</h2><h3 id="原地更新"><a href="#原地更新" class="headerlink" title="原地更新"></a>原地更新</h3><ul>
+<li>原地更新的挑战：写冲突，即前面的编辑操作修改了后面的编辑操作所要引用的旧二进制的空间<ul>
+<li>bsdiff场景：preceding Copy &amp; Modify and New edit operations</li>
+</ul>
+</li>
+<li>性能<ul>
+<li>原空间复杂度：u+v+w+O(1)</li>
+<li>新空间复杂度：max(u,v)+w+O(1)</li>
+</ul>
+</li>
+</ul>
+<h2 id="原地更新相关文章"><a href="#原地更新相关文章" class="headerlink" title="原地更新相关文章"></a>原地更新相关文章</h2><p>[11] R. C. Burms and D. D. E. Long, “In-Place Reconstruction of Delta<br>Compressed File,” ACM Symp. on Principles of Distributed Computing,<br>pp.267–275, Jul. 1998.<br>[12] D. Shapira and J. A. Storer, “In Place Differential File Compression,”<br>The Computer Journal Advance Access, Vol.48, pp.667–691, Aug. 2005.<br>[13] Y.-C. Cho and J. W. Jeon, “In-Place Reconstructible Delta Compression Using Alleviated Greedy Matching Algorithm,” Proc. Int. Conf. on<br>Industrial Informatics (INDIN2008), pp.1596–1601, Jul. 2008.  </p>
+<h1 id="In-Place-Reconstruction-of-Delta-Compressed-Files-PODC-‘98-CCF-B"><a href="#In-Place-Reconstruction-of-Delta-Compressed-Files-PODC-‘98-CCF-B" class="headerlink" title="In-Place Reconstruction of Delta Compressed Files (PODC ‘98 CCF-B)"></a>In-Place Reconstruction of Delta Compressed Files (<a target="_blank" rel="external nofollow noopener noreferrer" href="https://dl.acm.org/doi/proceedings/10.1145/277697">PODC ‘98 CCF-B</a>)</h1><h2 id="解决的问题-2"><a href="#解决的问题-2" class="headerlink" title="解决的问题"></a>解决的问题</h2><ul>
+<li><p>当差量指令指示计算机从一个文件区域复制数据时，新的文件数据可能已经被写入</p>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230302163437757.png" alt="image-20230302163437757"></p>
+</li>
+</ul>
+<h2 id="基本思路-1"><a href="#基本思路-1" class="headerlink" title="基本思路"></a>基本思路</h2><ul>
+<li><p>基于图论</p>
+</li>
+<li><p>对差分文件进行后处理</p>
+<ul>
+<li>对尝试读取已写入区域的指令进行检测</li>
+<li>对这些指令进行排序，以减少冲突的出现</li>
+<li>对于剩余的冲突，删除这些指令，改为显式添加（<strong>会增大差分文件的大小</strong>）</li>
+</ul>
+</li>
+<li><p>修改差分文件为可就地重建的，花费的时间比生成差分时间还要长</p>
+<ul>
+<li>（Conclusion又说时间更短，矛盾）</li>
+</ul>
+</li>
+</ul>
+<h2 id="过程：一个原地重建算法"><a href="#过程：一个原地重建算法" class="headerlink" title="过程：一个原地重建算法"></a>过程：一个原地重建算法</h2><ul>
+<li>定义copy指令为三元组*&lt;f,t,l&gt;*<ul>
+<li>f：源串中的地址</li>
+<li>t：目标串中的地址</li>
+<li>l：复制长度</li>
+</ul>
+</li>
+</ul>
+<h3 id="冲突检测"><a href="#冲突检测" class="headerlink" title="冲突检测"></a>冲突检测</h3><ul>
+<li>对于copy指令*&lt;f<sub>i</sub>,t<sub>i</sub>,l<sub>i</sub>&gt;<em>和</em>&lt;f<sub>j</sub>,t<sub>j</sub>,l<sub>j</sub>&gt;*，i&lt;j，存在一个WR冲突，当：[t<sub>i</sub>,t<sub>i</sub>+l<sub>i</sub>-1]∩[f<sub>j</sub>,f<sub>j</sub>+l<sub>j</sub>-1]≠{}</li>
+<li>与add指令相关的潜在WR冲突可以通过把add放在所有copy的末尾来避免<ul>
+<li>这种冲突出现于add先写，copy后读</li>
+</ul>
+</li>
+<li>copy指令的自冲突问题：读与写的区间重叠<ul>
+<li>解决方法<ul>
+<li>当f&gt;&#x3D;t时，从左到右逐字节复制</li>
+<li>当f&lt;t时，从右到左逐字节复制</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>三个方法：<ol>
+<li>将所有的add放到差分文件的末尾</li>
+<li>将copy指令排序，以减少WR冲突</li>
+<li>对于剩余的WR冲突，将对应的copy指令转为add指令，并且放到差分文件的末尾</li>
+</ol>
+</li>
+</ul>
+<h3 id="生成无冲突的排列"><a href="#生成无冲突的排列" class="headerlink" title="生成无冲突的排列"></a>生成无冲突的排列</h3><ul>
+<li><p>将copy指令按照t进行排序</p>
+</li>
+<li><p>将所有的copy指令用顶点表示</p>
+</li>
+<li><p>如果顶点<em>u</em>的读区间与顶点<em>v</em>的写区间重合，则创建一条边<em>u-&gt;v</em></p>
+</li>
+<li><p>执行增强版的拓扑排序</p>
+<ul>
+<li>如果检测到环，移除一个顶点（转为add）以消除环<ul>
+<li>移除最佳顶点以减少压缩损失是一个NP难问题</li>
+<li>两种策略：<ul>
+<li>常数时间策略：选择最容易移除的顶点</li>
+<li>局部最小策略：遍历环，选择删除开销最小的顶点，即copy的长度最小的指令</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>将拓扑排序后的copy指令写入输出文件，再将add指令写入输出文件</p>
+</li>
+</ul>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><ul>
+<li><p>数据集：GNU工具、BSD操作系统</p>
+</li>
+<li><p>压缩损失：</p>
+<ul>
+<li>局部最小策略：2.4%</li>
+<li>常数时间策略：5.9%</li>
+</ul>
+</li>
+</ul>
+<h1 id="In-Place-Differential-File-Compression（DCC-03-CCF-B-and-The-Computer-Journal-05）"><a href="#In-Place-Differential-File-Compression（DCC-03-CCF-B-and-The-Computer-Journal-05）" class="headerlink" title="In Place Differential File Compression（DCC 03 CCF-B and The Computer Journal 05）"></a>In Place Differential File Compression（DCC 03 CCF-B and The Computer Journal 05）</h1><h2 id="基本思路-2"><a href="#基本思路-2" class="headerlink" title="基本思路"></a>基本思路</h2><ul>
+<li>提出了IPSW算法<ul>
+<li>将窗口初始化为S，将其最大尺寸限制为max(|S|,|T|)来对T进行解压</li>
+<li>速度快，压缩效果好</li>
+<li>当S和T有合理程度的对齐时（即S和T的大量匹配以大致相同的相对顺序出现），IPSW最有效<ul>
+<li>这种对齐在很多应用中是典型现象</li>
+</ul>
+</li>
+<li>当S和T不对齐时，对S进行预处理<ul>
+<li>压缩文件之前有一个位标识该文件是否经过预处理</li>
+<li>编码器用IPSW对T进行压缩，与对S的压缩进行对比<ul>
+<li>如果差别很大，则设置初始位，进行对齐预处理，在IPSW编码前增加一个移动列表</li>
+<li>解码器先原地执行这些动作，再执行正常的IPSW解码</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>本文直接生成可原地构建的差分文件，而不是对差分文件进行可原地构建处理</li>
+<li>本文同时实现了就地压缩和就地解压</li>
+</ul>
+<h2 id="原地移动子串（压缩前置知识）"><a href="#原地移动子串（压缩前置知识）" class="headerlink" title="原地移动子串（压缩前置知识）"></a>原地移动子串（压缩前置知识）</h2><ul>
+<li><p>定义源串S，目标串T</p>
+</li>
+<li><p>差分文件包含一些移动指令（对应S和T匹配的块）和一些压缩数据（对应不匹配的部分）</p>
+</li>
+<li><p>解压流程如下：</p>
+<ul>
+<li>对于收到的每条移动指令，对T的子串就地执行移动</li>
+<li>对于压缩数据，进行解压，然后填补移动后的空隙<ul>
+<li>步骤2可以应用任何无损压缩方法</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>定义s为S中一个即将被移动的子串，l为s的长度，x为原位置，y为目标位置</p>
+<ul>
+<li>本文定义的”移动“并不是简单覆盖，例如：当s往右移动1个字符时，原本在s右边的那个字符要变到s左边，而不是被覆盖</li>
+</ul>
+</li>
+<li><p>就地移动子串的高效方法：</p>
+<ul>
+<li>过程<ul>
+<li>不失一般性，令x&#x3D;0，假设向右移动</li>
+<li>对0到y-1的字符，进行排列：i → (i + d) MOD y</li>
+</ul>
+</li>
+<li>执行排列的方法<ul>
+<li>标准方法：O(y)时间、y比特的标记位空间</li>
+<li>一个理论方法：O(1)空间，但在实际应用中节省y比特的标记位空间并不重要</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>当S和T对齐的情况下，移动只需要简单的字符串拷贝：</p>
+<ul>
+<li><p>两次扫描文件，首先从左到右复制移动到左边的块，再从右到左复制移动到右边的块</p>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303134313131.png" alt="image-20230303134313131"></p>
+</li>
+<li><p>实际执行过程可以设置多个阈值，分步贪心查找匹配的窗口</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="原地滑动窗口（压缩、解压缩过程）"><a href="#原地滑动窗口（压缩、解压缩过程）" class="headerlink" title="原地滑动窗口（压缩、解压缩过程）"></a>原地滑动窗口（压缩、解压缩过程）</h2><ul>
+<li>问题：给定一个长度为m的串S，一个长度为n的串T，以及字符插入、块删除、块移动和块复制的操作集，计算将S转化为T所需的最小操作数<ul>
+<li>即压缩过程如何生成最小的差分文件</li>
+<li>是一个NP-完全问题</li>
+<li>可以通过一个简单的从左到右的贪婪复制算法（全窗算法）近似到一个恒定的常数内</li>
+</ul>
+</li>
+<li>全窗编码算法：略</li>
+<li>ISPW算法：<ol>
+<li>构建字符串ST</li>
+<li>在一个滑动窗口max(m,n)内，从左到右贪心地寻找与接下来的子串匹配的子串（使用上一节最后一部分叙述的分步贪心查找方法）</li>
+</ol>
+</li>
+<li>使用ISPW算法进行压缩后，由于限制了匹配子串只能在大小为max(m,n)的滑动窗口内进行查找，因此解压时所占用的内存空间也是max(m,n)</li>
+</ul>
+<h2 id="移动预处理算法（MP）"><a href="#移动预处理算法（MP）" class="headerlink" title="移动预处理算法（MP）"></a>移动预处理算法（MP）</h2><p>先不看</p>
+<h2 id="实验-1"><a href="#实验-1" class="headerlink" title="实验"></a>实验</h2><ul>
+<li>IPSW的压缩率与bsdiff接近<ul>
+<li>针对部分文件（如sql和部分的gcc），即使不采取MP，IPSW的压缩率也能优于bsdiff</li>
+<li>即使采取了MP，IPSW针对dll文件的压缩率表现也比较差，少部分较好</li>
+</ul>
+</li>
+<li>我的结论：用IPSW实现原地解压后导致的压缩率损失与具体的文件格式有关系</li>
+</ul>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303143043095.png" alt="image-20230303143043095"></p>
+<h1 id="In-Place-Reconstructible-Delta-Compression-using-Alleviated-Greedy-Matching-Algorithm（INDIN-08）"><a href="#In-Place-Reconstructible-Delta-Compression-using-Alleviated-Greedy-Matching-Algorithm（INDIN-08）" class="headerlink" title="In-Place Reconstructible Delta Compression using Alleviated Greedy Matching Algorithm（INDIN 08）"></a>In-Place Reconstructible Delta Compression using Alleviated Greedy Matching Algorithm（INDIN 08）</h1><h2 id="解决的问题-3"><a href="#解决的问题-3" class="headerlink" title="解决的问题"></a>解决的问题</h2><ul>
+<li><p>现有方案的问题</p>
+<ul>
+<li>Burns and Long的方案将COPY指令替换为ADD指令，增加了差分文件的大小</li>
+<li>Shapira的方案使用了原地滑动窗口算法，然而解码时移动字符串几乎需要O(m)时间，使得解码器变得更加复杂，不适合于嵌入式系统；并且预处理步骤还会增大差分文件的大小</li>
+</ul>
+</li>
+<li><p>本文解决了这两个问题，适合于小内存和低计算能力的嵌入式系统</p>
+</li>
+</ul>
+<h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><ul>
+<li><p>找匹配串的方法</p>
+<ul>
+<li>最优的找匹配串方法：后缀树。但需要线性空间，不适用于大文件</li>
+<li>另一种方法：哈希方法。如Karp-Rabin哈希，可以递推计算</li>
+</ul>
+</li>
+<li><p>贪心方法</p>
+<ul>
+<li><p>创建一个哈希表，保存指纹对应的所有下标（以链表形式）</p>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303153404971.png" alt="image-20230303153404971"></p>
+</li>
+<li><p>算法对f<sub>new</sub>当前位置的串进行哈希，在哈希表中找到最长匹配的串</p>
+<ul>
+<li>如果匹配失败，则f<sub>new</sub>下标加1</li>
+</ul>
+</li>
+<li><p>伪代码如下，注意APPEND和SET的被操作数是前面的变量：</p>
+</li>
+</ul>
+</li>
+</ul>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303155411487.png" alt="image-20230303155411487"></p>
+<h2 id="方法：缓解的贪婪匹配算法"><a href="#方法：缓解的贪婪匹配算法" class="headerlink" title="方法：缓解的贪婪匹配算法"></a>方法：缓解的贪婪匹配算法</h2><ul>
+<li><p>选取避免WR冲突的字符串匹配，而不是最长匹配</p>
+</li>
+<li><p>现有的确定最佳匹配串的贪心算法有如下两个标准：</p>
+<ul>
+<li>匹配串长度</li>
+<li>距离当前位置的offset</li>
+</ul>
+</li>
+<li><p>本文增加了一个标准：</p>
+<ul>
+<li>是否有WR冲突（这个标准是最重要的）</li>
+</ul>
+</li>
+<li><p>伪代码：</p>
+<ul>
+<li>当一个匹配串在旧文件当中，且下标在当前编码位置之前，则代表会发生WR冲突。该匹配节点将被移除</li>
+<li>遍历完链表后，在所有不会发生WR冲突的节点当中找最佳匹配串</li>
+</ul>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303155658454.png" alt="image-20230303155658454"></p>
+</li>
+</ul>
+<h2 id="实验-2"><a href="#实验-2" class="headerlink" title="实验"></a>实验</h2><ul>
+<li>本文在zdelta上应用了本方法，与原始zdelta和Burn的方法进行对比</li>
+<li>本文方法生成的差分文件大小略小于Burn的方法</li>
+<li>由于差分文件更小，本文的解压内存占用也略小于Burn的方法</li>
+</ul>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303161203897-1678091281999-1.png" alt="image-20230303161203897"></p>
+<h1 id="Dfinder—An-efficient-differencing-algorithm-for-incremental-programming-of-constrained-IoT-devices（IOT-22）"><a href="#Dfinder—An-efficient-differencing-algorithm-for-incremental-programming-of-constrained-IoT-devices（IOT-22）" class="headerlink" title="Dfinder—An efficient differencing algorithm for incremental programming of constrained IoT devices（IOT 22）"></a>Dfinder—An efficient differencing algorithm for incremental programming of constrained IoT devices（IOT 22）</h1><h2 id="贡献"><a href="#贡献" class="headerlink" title="贡献"></a>贡献</h2><ul>
+<li>本文提出了Dfinder<ul>
+<li>字节级</li>
+<li>使用增强的后缀数组，可以有效产生小的差分文件</li>
+<li>可以正向和反向检测共同片段，还可以使用新固件中已经被重建的部分</li>
+<li>O(nlogn)时间，O(n)空间</li>
+</ul>
+</li>
+<li>提出Dfinder的一个模式，允许就地重建</li>
+</ul>
+<h2 id="物联网空中编程前置知识"><a href="#物联网空中编程前置知识" class="headerlink" title="物联网空中编程前置知识"></a>物联网空中编程前置知识</h2><ul>
+<li><p>物联网领域使用的操作系统，如ContikiOS[18]，是模块化系统，支持动态链接[19]和加载；因此，就OTAP而言，它们只需要接收新固件映像的修改部分，因为在接收时，动态链接器会重新链接映像并再次加载它。可能会出现大量的开销，因为除了修改的部分，新的符号和重定位表也需要传输。Elon[20]通过引入可替换部件的概念来解决这个问题，这些部件包括。(i) 可替换的代码，(ii) 可替换的数据，以及(iii) 系统跳转表。然而，一个缺点是，这些（组件）存储在节点的RAM中，随后在系统重置的情况下需要重新传输。</p>
+</li>
+<li><p>相关算法：</p>
+<ul>
+<li>Xdelta</li>
+<li>BSDiff</li>
+<li>RMTD</li>
+<li>DASA</li>
+<li>R3</li>
+<li>JojoDiff</li>
+<li>DG</li>
+</ul>
+</li>
+</ul>
+<h2 id="增强的后缀数组"><a href="#增强的后缀数组" class="headerlink" title="增强的后缀数组"></a>增强的后缀数组</h2><ul>
+<li>增强的后缀数组&#x3D;后缀数组SA+辅助数组（LCP数组、𝛷-数组等）</li>
+<li>Dfinder使用divsufsort</li>
+</ul>
+<h2 id="Dfinder"><a href="#Dfinder" class="headerlink" title="Dfinder"></a>Dfinder</h2><ul>
+<li><p>指令</p>
+<ul>
+<li><p>COPY(Copy_typeX|X&#x3D;1,2,3,4)，取决于BMD所检测的匹配片段的类型</p>
+</li>
+<li><p>ADD，连续的ADD指令可以合并</p>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303174541068.png" alt="image-20230303174541068"></p>
+</li>
+</ul>
+</li>
+<li><p>过程</p>
+<p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230303174825401.png" alt="image-20230303174825401"></p>
+</li>
+<li><p>块移动检测器（BMD）</p>
+<ul>
+<li>动态编程假设共同的子序列以相同顺序出现，且无法捕获重复子序列。因此，Tichy使用了块移动</li>
+</ul>
+</li>
+</ul>
+<h1 id="S2-a-Small-Delta-and-Small-Memory-Differencing-Algorithm-for-Reprogramming-Resource-constrained-IoT-Devices（INFOCOM-‘21"><a href="#S2-a-Small-Delta-and-Small-Memory-Differencing-Algorithm-for-Reprogramming-Resource-constrained-IoT-Devices（INFOCOM-‘21" class="headerlink" title="S2: a Small Delta and Small Memory Differencing Algorithm for Reprogramming Resource-constrained IoT Devices（INFOCOM ‘21)"></a>S2: a Small Delta and Small Memory Differencing Algorithm for Reprogramming Resource-constrained IoT Devices（INFOCOM ‘21)</h1><h2 id="摘要"><a href="#摘要" class="headerlink" title="摘要"></a>摘要</h2><ul>
+<li>现代IoT应用的固件大小逐渐增大，使得现有差分算法面临RAM的瓶颈</li>
+<li>提出S2<ul>
+<li>减小内存占用的方法<ul>
+<li>基于拓扑排序的原地重建算法</li>
+<li>流重建技术</li>
+</ul>
+</li>
+<li>减小差分文件大小的方法<ul>
+<li>基于预测的编码</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="解决的问题和方法"><a href="#解决的问题和方法" class="headerlink" title="解决的问题和方法"></a>解决的问题和方法</h2><ul>
+<li>有限的RAM：现有方法需要把整个旧文件读入RAM<ul>
+<li>方法：基于拓扑排序的原地重建</li>
+</ul>
+</li>
+<li>有限的flash空间：现有方法需要把新文件写入不同空间<ul>
+<li>方法：流重建技术</li>
+</ul>
+</li>
+<li>进一步减小差分文件大小<ul>
+<li>方法：基于预测的编码</li>
+</ul>
+</li>
+</ul>
+<h2 id="方法-1"><a href="#方法-1" class="headerlink" title="方法"></a>方法</h2><h3 id="S2DIFF"><a href="#S2DIFF" class="headerlink" title="S2DIFF"></a>S2DIFF</h3><ul>
+<li>拓扑排序：同Burn的算法</li>
+<li>基于预测的编码：<ul>
+<li>原始的指令地址参数都用8个字节编码，以支持大文件</li>
+<li>文章观察到ADD序列的参数t是单调增加的，COPY的参数在拓扑排序前也是单调增加的</li>
+<li>因此，文章用预测模型对地址参数进行编码：给定一个要编码的COPY的t地址，文章用前几个t来预测它的值，然后用预测的误差对t进行2个字节的编码<ul>
+<li>采用移动平均（MA）模型，因为它能在资源有限的设备上进行有效传输和执行，并且有令人满意的准确度</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>用xz进行二次压缩</li>
+</ul>
+<h3 id="S2PATCH"><a href="#S2PATCH" class="headerlink" title="S2PATCH"></a>S2PATCH</h3><ul>
+<li>流重建<ul>
+<li>逐指令解压，用预测算法恢复指令的地址参数，然后执行</li>
+</ul>
+</li>
+</ul>
+<h2 id="实验-3"><a href="#实验-3" class="headerlink" title="实验"></a>实验</h2><p><img src="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/image-20230308200702138.png" alt="image-20230308200702138"></p>
+<ul>
+<li><p>baseline：</p>
+<ul>
+<li><p>AOS：AliOS Things操作系统中默认的增量重编程算法</p>
+<ul>
+<li>将新旧文件分割成64KB的片段，然后对每个片段执行bsdiff</li>
+</ul>
+</li>
+<li><p>bsdiff：包含Burn的原地重建算法</p>
+</li>
+</ul>
+</li>
+</ul>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    bzip2相关论文阅读笔记
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">easy_note源码阅读</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

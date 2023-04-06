@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>0-1背包问题笔记 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="动态规划">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="一、原始版本0-1背包问题的原始版本为：  有N件物品和一个最大容纳重量为W的背包。第i件物品的重量是weights[i]，价值是values[i] ，每件物品只能用一次，问将哪些物品装入背包之后物品的总价值最大。  通用的解题模板为：设计一个二维数组dp[N+1][W+1]，使用两层循环遍历，最后返回二维数组的最后一个值，代码如下。 1234567891011121314vector&lt;ve">
+<meta property="og:type" content="article">
+<meta property="og:title" content="0-1背包问题笔记">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="一、原始版本0-1背包问题的原始版本为：  有N件物品和一个最大容纳重量为W的背包。第i件物品的重量是weights[i]，价值是values[i] ，每件物品只能用一次，问将哪些物品装入背包之后物品的总价值最大。  通用的解题模板为：设计一个二维数组dp[N+1][W+1]，使用两层循环遍历，最后返回二维数组的最后一个值，代码如下。 1234567891011121314vector&lt;ve">
+<meta property="og:locale">
+<meta property="article:published_time" content="2021-07-16T12:13:36.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.451Z">
+<meta property="article:tag" content="动态规划">
+<meta name="twitter:card" content="summary">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file active"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-0-1背包问题笔记" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E7%AE%97%E6%B3%95/">算法</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92/" rel="tag">动态规划</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">
+            <time datetime="2021-07-16T12:13:36.000Z" itemprop="datePublished">2021-07-16</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/0-1背包问题笔记.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/0-1背包问题笔记.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/0-1背包问题笔记.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            0-1背包问题笔记
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="一、原始版本"><a href="#一、原始版本" class="headerlink" title="一、原始版本"></a>一、原始版本</h1><p>0-1背包问题的原始版本为：</p>
+<blockquote>
+<p>有N件物品和一个最大容纳重量为W的背包。第i件物品的重量是weights[i]，价值是values[i] ，<strong>每件物品只能用一次</strong>，问将哪些物品装入背包之后物品的总价值最大。</p>
+</blockquote>
+<p>通用的解题模板为：设计一个二维数组dp[N+1][W+1]，使用两层循环遍历，最后返回二维数组的最后一个值，代码如下。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">dp</span>(N + <span class="number">1</span>, <span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (W + <span class="number">1</span>, <span class="number">0</span>));</span><br><span class="line"><span class="comment">// 此处dp[i][j]的含义为：遍历完前i个物体之后，背包中所装物体重量不超过W时的物品的总最大价值</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt;= N; ++i) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> w = <span class="number">0</span>; w &lt;= W; ++w) &#123;</span><br><span class="line">        <span class="comment">// 注意weights与values访问时下标i需要减去1，因为i取值是1～N，而这两个数组的下标取值是0～N-1</span></span><br><span class="line">        dp[i][w] = dp[i - <span class="number">1</span>][w]; <span class="comment">// 不选第i个物品</span></span><br><span class="line">        <span class="keyword">if</span> (w &gt;= weights[i - <span class="number">1</span>]) &#123;</span><br><span class="line">            dp[i][w] = <span class="built_in">max</span>(dp[i][w], dp[i - <span class="number">1</span>][w - weights[i - <span class="number">1</span>]] + values[i - <span class="number">1</span>]); <span class="comment">// 选第i个物品</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> dp[N][W];</span><br></pre></td></tr></table></figure>
+
+<p>上述代码是我刚刚总结出来的，还没测试过，因为实际做题中遇到的都是原始题目的变体，代码实现上会有细微的差异，很容易转不过弯来。</p>
+<p>可能需要修改的地方包括但不限于：</p>
+<ul>
+<li>数组第一维的大小（是否需要+1）</li>
+<li>数组第二维的大小</li>
+<li>外层循环的遍历范围</li>
+<li>是否需要初始化dp[0]、如何初始化</li>
+<li>返回值的选取</li>
+<li>dp[i][w]选用的是max还是min，还是bool值</li>
+</ul>
+<h1 id="二、“恰好”版：LeetCode-416-分割等和子集"><a href="#二、“恰好”版：LeetCode-416-分割等和子集" class="headerlink" title="二、“恰好”版：LeetCode 416 分割等和子集"></a>二、“恰好”版：LeetCode 416 分割等和子集</h1><blockquote>
+<p>给你一个 <strong>只包含正整数</strong> 的 <strong>非空</strong> 数组 <code>nums</code> 。请你判断是否可以将这个数组分割成两个子集，使得两个子集的元素和相等。</p>
+</blockquote>
+<p>首先进行映射：</p>
+<ul>
+<li>物品&#x3D;&gt;数</li>
+<li>物品重量&#x3D;&gt;数值大小</li>
+<li>物品总价值&#x3D;&gt;并不是一个求和结果，而是一个bool值，表示是否存在一种取法，使得物体总重量为该值</li>
+</ul>
+<p>问题转换为：有nums.size()个物品，其重量为nums[i]，每个物品可放入背包也可不放入背包，求是否存在某一种取法，使得背包内的物品总重量<strong>恰好</strong>为sum(nums) &#x2F; 2。</p>
+<p>代码实现：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">canPartition</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; nums)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> sum = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; nums.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        sum += nums[i];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (sum % <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">dp</span>(nums.<span class="built_in">size</span>(), (<span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (sum + <span class="number">1</span>, <span class="number">0</span>)));</span><br><span class="line">    dp[<span class="number">0</span>][nums[<span class="number">0</span>]] = <span class="number">1</span>;</span><br><span class="line">    dp[<span class="number">0</span>][<span class="number">0</span>] = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt; nums.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> w = <span class="number">0</span>; w &lt;= sum / <span class="number">2</span>; ++w) &#123;</span><br><span class="line">            <span class="keyword">if</span> (dp[i - <span class="number">1</span>][w] || (w &gt;= nums[i]) &amp;&amp; dp[i - <span class="number">1</span>][w - nums[i]]) &#123;</span><br><span class="line">                dp[i][w] = <span class="number">1</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> dp[nums.<span class="built_in">size</span>() - <span class="number">1</span>][sum / <span class="number">2</span>];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>代码细节：</p>
+<ul>
+<li>dp[i][j]的含义为：遍历完前i个物体之后，<strong>是否存在背包重量恰好为j的情况</strong></li>
+<li>数组第一维大小不需要加1，下标从0开始，遍历时跳过第0个</li>
+<li>dp[0]需要进行初始化。两行初始化语句表示：遍历完第一个物体之后，背包容量要么为0，要么为第一个物体的重量</li>
+<li>dp[i][w]的求法：只要取第i个或者不取第i个这两种取法的其中一种是合法的，dp[i][j]就为真</li>
+<li>内层循环需遍历到num &#x2F; 2</li>
+</ul>
+<h1 id="三、“恰好”版：LeetCode-1049-最后一块石头的重量"><a href="#三、“恰好”版：LeetCode-1049-最后一块石头的重量" class="headerlink" title="三、“恰好”版：LeetCode 1049 最后一块石头的重量"></a>三、“恰好”版：LeetCode 1049 最后一块石头的重量</h1><blockquote>
+<p>有一堆石头，用整数数组 stones 表示。其中 stones[i] 表示第 i 块石头的重量。</p>
+<p>每一回合，从中选出任意两块石头，然后将它们一起粉碎。假设石头的重量分别为 x 和 y，且 x &lt;&#x3D; y。那么粉碎的可能结果如下：</p>
+<p>如果 x &#x3D;&#x3D; y，那么两块石头都会被完全粉碎；<br>如果 x !&#x3D; y，那么重量为 x 的石头将会完全粉碎，而重量为 y 的石头新重量为 y-x。<br>最后，最多只会剩下一块 石头。返回此石头 最小的可能重量 。如果没有石头剩下，就返回 0。</p>
+</blockquote>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">lastStoneWeightII</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; stones)</span> </span>&#123;</span><br><span class="line">    <span class="type">int</span> sum = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; stones.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        sum += stones[i];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">dp</span>(stones.<span class="built_in">size</span>(), (<span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (sum + <span class="number">1</span>, <span class="number">0</span>)));</span><br><span class="line">    dp[<span class="number">0</span>][stones[<span class="number">0</span>]] = <span class="number">1</span>;</span><br><span class="line">    dp[<span class="number">0</span>][<span class="number">0</span>] = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt; stones.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> w = <span class="number">0</span>; w &lt;= sum; ++w) &#123;</span><br><span class="line">            <span class="keyword">if</span> (dp[i - <span class="number">1</span>][w] || (w &gt;= stones[i]) &amp;&amp; dp[i - <span class="number">1</span>][w - stones[i]]) &#123;</span><br><span class="line">                dp[i][w] = <span class="number">1</span>;</span><br><span class="line">            &#125;;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">double</span> sum_db = sum;</span><br><span class="line">    <span class="type">double</span> minVal = INT_MAX;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> w = <span class="number">0</span>; w &lt;= sum; ++w) &#123;</span><br><span class="line">        <span class="keyword">if</span> (dp[stones.<span class="built_in">size</span>() - <span class="number">1</span>][w])</span><br><span class="line">            minVal = <span class="built_in">min</span>(minVal, <span class="built_in">abs</span>(w - sum_db / <span class="number">2</span>));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> minVal * <span class="number">2</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>与上一题完全相同。这道题难在如何将题干转换成0-1背包问题。</p>
+<h1 id="四、双背包版：LeetCode-474-一和零"><a href="#四、双背包版：LeetCode-474-一和零" class="headerlink" title="四、双背包版：LeetCode 474 一和零"></a>四、双背包版：LeetCode 474 一和零</h1><blockquote>
+<p>给你一个二进制字符串数组 strs 和两个整数 m 和 n 。</p>
+<p>请你找出并返回 strs 的最大子集的大小，该子集中 最多 有 m 个 0 和 n 个 1 。</p>
+<p>如果 x 的所有元素也是 y 的元素，集合 x 是集合 y 的 子集 。</p>
+</blockquote>
+<p>我的思路非常朴素，多一个背包相当于给dp数组加一个维度，多套一层循环进行遍历。</p>
+<p>这是我的<u>错误解答</u>：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">findMaxFormIncorrectSolution</span><span class="params">(vector&lt;string&gt;&amp; strs, <span class="type">int</span> m, <span class="type">int</span> n)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// 错误解答</span></span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">nums</span>(strs.<span class="built_in">size</span>(), <span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (<span class="number">2</span>, <span class="number">0</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; strs.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; strs[i].<span class="built_in">size</span>(); ++j) &#123;</span><br><span class="line">            <span class="keyword">if</span> (strs[i][j] == <span class="string">&#x27;0&#x27;</span>) ++nums[i][<span class="number">0</span>];</span><br><span class="line">            <span class="keyword">else</span> ++nums[i][<span class="number">1</span>];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vector&lt;vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&gt; <span class="built_in">dp</span>(strs.<span class="built_in">size</span>(), vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; (m + <span class="number">1</span>, <span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (n + <span class="number">1</span>, <span class="number">0</span>)));</span><br><span class="line">    <span class="keyword">if</span> (nums[<span class="number">0</span>][<span class="number">0</span>] &lt;= m &amp;&amp; nums[<span class="number">0</span>][<span class="number">1</span>] &lt;= n)</span><br><span class="line">        dp[<span class="number">0</span>][nums[<span class="number">0</span>][<span class="number">0</span>]][nums[<span class="number">0</span>][<span class="number">1</span>]] = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt; strs.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> w0 = <span class="number">0</span>; w0 &lt;= m; ++w0) &#123;</span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> w1 = <span class="number">0</span>; w1 &lt;= n; ++w1) &#123;</span><br><span class="line">                <span class="type">int</span> maxVal = <span class="number">0</span>;</span><br><span class="line">                <span class="keyword">if</span> (w0 &gt;= nums[i][<span class="number">0</span>] &amp;&amp; w1 &gt;= nums[i][<span class="number">1</span>]) &#123;</span><br><span class="line">                    maxVal = <span class="number">1</span> + dp[i - <span class="number">1</span>][w0 - nums[i][<span class="number">0</span>]][w1 - nums[i][<span class="number">1</span>]];</span><br><span class="line">                &#125;</span><br><span class="line">                maxVal = <span class="built_in">max</span>(maxVal, dp[i - <span class="number">1</span>][w0][w1]);</span><br><span class="line">                dp[i][w0][w1] = maxVal;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> dp[strs.<span class="built_in">size</span>() - <span class="number">1</span>][m][n];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>错误原因在于：我受到了“恰好”版的影响，以为需要初始化dp[0]；但这道题更接近于原始版本，不需要初始化，数组第一维的长度相应地要加1，对nums数组的访问下标需要减1。因为题干提到了“<strong>最多</strong> 有 m 个 0 和 n 个 1 ”，所以dp数组的值表示的是背包重量<strong>不超过</strong>第二维和第三维时的最大价值，与原始版本题意相同，只是多了一维。</p>
+<p>正确解答：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">findMaxForm</span><span class="params">(vector&lt;string&gt;&amp; strs, <span class="type">int</span> m, <span class="type">int</span> n)</span> </span>&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">nums</span>(strs.<span class="built_in">size</span>(), <span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (<span class="number">2</span>, <span class="number">0</span>));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; strs.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; strs[i].<span class="built_in">size</span>(); ++j) &#123;</span><br><span class="line">            <span class="keyword">if</span> (strs[i][j] == <span class="string">&#x27;0&#x27;</span>) ++nums[i][<span class="number">0</span>];</span><br><span class="line">            <span class="keyword">else</span> ++nums[i][<span class="number">1</span>];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    vector&lt;vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&gt; <span class="built_in">dp</span>(strs.<span class="built_in">size</span>() + <span class="number">1</span>, vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; (m + <span class="number">1</span>, <span class="built_in">vector</span>&lt;<span class="type">int</span>&gt; (n + <span class="number">1</span>, <span class="number">0</span>)));</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">1</span>; i &lt;= strs.<span class="built_in">size</span>(); ++i) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> w0 = <span class="number">0</span>; w0 &lt;= m; ++w0) &#123;</span><br><span class="line">            <span class="keyword">for</span> (<span class="type">int</span> w1 = <span class="number">0</span>; w1 &lt;= n; ++w1) &#123;</span><br><span class="line">                <span class="type">int</span> maxVal = <span class="number">0</span>;</span><br><span class="line">                <span class="keyword">if</span> (w0 &gt;= nums[i - <span class="number">1</span>][<span class="number">0</span>] &amp;&amp; w1 &gt;= nums[i - <span class="number">1</span>][<span class="number">1</span>]) &#123;</span><br><span class="line">                    maxVal = <span class="number">1</span> + dp[i - <span class="number">1</span>][w0 - nums[i - <span class="number">1</span>][<span class="number">0</span>]][w1 - nums[i - <span class="number">1</span>][<span class="number">1</span>]];</span><br><span class="line">                &#125;</span><br><span class="line">                maxVal = <span class="built_in">max</span>(maxVal, dp[i - <span class="number">1</span>][w0][w1]);</span><br><span class="line">                dp[i][w0][w1] = maxVal;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> dp[strs.<span class="built_in">size</span>()][m][n];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="五、总结"><a href="#五、总结" class="headerlink" title="五、总结"></a>五、总结</h1><ul>
+<li>原始版本：数组第一维长度N+1，外层循环从1遍历到N，无需初始化（准确地说应该是全部初始化为0）</li>
+<li>恰好版本：数组第一维长度N，外层循环从1遍历到N-1，需初始化dp[0]，把恰好取第一个物体和不取第一个物体两种情况考虑进去</li>
+<li>双背包版本：在上述基础上，给数组加一个维度</li>
+</ul>
+<p>如果实在不想微调第一维的下标，想统一前两种情况，那么在原始版本当中，需要将dp[0][j], j &gt;&#x3D; weights[0]初始化为values[0]，之后就可以用”恰好“版的方式进行遍历。</p>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    Prim算法 vs Dijkstra算法
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">我的实用软件清单</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

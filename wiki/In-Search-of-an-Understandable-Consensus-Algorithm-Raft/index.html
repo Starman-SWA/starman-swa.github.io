@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>In Search of an Understandable Consensus Algorithm - Raft | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="Raft">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="摘要Raft是一个用于管理replicated log的共识算法（consensus algorithm）。Raft与Paxos一样高效。相比Paxos，Raft更加易懂，且为应用到实际系统当中提供了更好的基础。为了提高可理解性，Raft将共识算法的几个关键元素分开，例如leader election、log replication和safety，并且它通过执行更强的一致性减少了需要考虑的状态数目">
+<meta property="og:type" content="article">
+<meta property="og:title" content="In Search of an Understandable Consensus Algorithm - Raft">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="摘要Raft是一个用于管理replicated log的共识算法（consensus algorithm）。Raft与Paxos一样高效。相比Paxos，Raft更加易懂，且为应用到实际系统当中提供了更好的基础。为了提高可理解性，Raft将共识算法的几个关键元素分开，例如leader election、log replication和safety，并且它通过执行更强的一致性减少了需要考虑的状态数目">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure1.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure4.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure5.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure6.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure7.png">
+<meta property="article:published_time" content="2021-12-13T07:43:06.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.457Z">
+<meta property="article:tag" content="Raft">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/figure1.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file active"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-In-Search-of-an-Understandable-Consensus-Algorithm-Raft" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/Raft/" rel="tag">Raft</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">
+            <time datetime="2021-12-13T07:43:06.000Z" itemprop="datePublished">2021-12-13</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/In-Search-of-an-Understandable-Consensus-Algorithm-Raft.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/In-Search-of-an-Understandable-Consensus-Algorithm-Raft.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/In-Search-of-an-Understandable-Consensus-Algorithm-Raft.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            In Search of an Understandable Consensus Algorithm - Raft
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h1 id="摘要"><a href="#摘要" class="headerlink" title="摘要"></a>摘要</h1><p>Raft是一个用于管理replicated log的共识算法（consensus algorithm）。Raft与Paxos一样高效。相比Paxos，Raft更加易懂，且为应用到实际系统当中提供了更好的基础。为了提高可理解性，Raft将共识算法的几个关键元素分开，例如leader election、log replication和safety，并且它通过执行更强的一致性减少了需要考虑的状态数目。</p>
+<h1 id="引入"><a href="#引入" class="headerlink" title="引入"></a>引入</h1><p>共识算法能够让一群机器作为一个团结一致的群体运行，且能够容忍其中部分成员的失效。因此，共识算法在建立可靠的大规模软件系统当中发挥了重要作用。目前，几乎所有的共识算法都是基于Paxos，或受其影响的。但Paxos有两个缺点：</p>
+<ol>
+<li>难以理解。</li>
+<li>不能为构建实际系统提供一个很好的基础。为了应用到实际系统，需要进行复杂的更改。</li>
+</ol>
+<p>Raft的提出就是为了改善这两个问题。Raft有以下几个新的特征：</p>
+<ol>
+<li>Strong leader：相比其他共识算法，Raft使用了一种更强的领导形式。例如，log entries只从leader传输到其他服务器。这简化了replicated log的管理，并且使得Raft更易懂。</li>
+<li>Leader election：Raft使用了随机的计时器来选举领导。这是在其他共识算法已有的心跳机制的基础上进行的小规模的修改，但却简单迅速地解决了冲突。</li>
+<li>Membership changes：Raft再更改集群中服务器集合的时候采用了新的joint consensus方法，两种不同配置的大多数服务器在转换过程中会重叠。这使得集群在配置更改的过程中仍然能正常运行。</li>
+</ol>
+<h1 id="Replicated-state-machines"><a href="#Replicated-state-machines" class="headerlink" title="Replicated state machines"></a>Replicated state machines</h1><p>共识算法被应用的典型场景是Replicated state machines，其中，一群机器上的状态机计算相同状态的副本，并且在部分服务器失效的情况下也能继续运行。Replicated state machines被用于解决分布式系统中的容错问题。</p>
+<p>如下图，Replicated state machines通常使用replicated log实现。每个服务器存储一个包含一系列指令的日志，状态机顺序执行这些指令。所有状态机按同样的顺序存储相同的指令，得到相同的输出序列。</p>
+<img src="figure1.png">
+
+<p>实际系统中的共识算法通常具有下列性质：</p>
+<ol>
+<li>在非拜占庭条件之下保证安全（不返回错误的结果）。非拜占庭条件指的是<strong>可以出现故障，但信息不能被伪造</strong>，例如网络延迟、丢包、重复、失序。与之相对应的是信息被伪造的拜占庭错误。</li>
+<li>当大多数服务器可用且能够互相发送信息时，集群就是可用的。例如，拥有5个服务器的典型集群能够容忍2个服务器的失效。</li>
+<li>不依赖于计时器来保证日志的一致性，错误的时钟和极端的消息延迟在最坏情况下也只会造成可用性问题，而不会影响一致性。</li>
+<li>通常情况下，一旦集群中的大多数服务器对一轮RPC完成一次响应，集群就完成了一条指令的执行；少数慢速服务器不会影响系统的整体性能。</li>
+</ol>
+<h1 id="Raft算法"><a href="#Raft算法" class="headerlink" title="Raft算法"></a>Raft算法</h1><p>Raft将共识问题分解为下列几个相对独立的子问题：</p>
+<ol>
+<li>Leader election：当现有的leader失效时，一个新的leader被选出。</li>
+<li>Log replication：leader从客户端接收log entries，在集群中复制，保证其他日志与之一致。</li>
+<li>Safety：Raft在任何时候保证下列每一条性质。<ul>
+<li>Election Safety：在一个给定的term当中，至多一个leader被选出。</li>
+<li>Leader Append-Only：一个leader从不覆写或删除其日志中的entries；leader只附加新的entries。</li>
+<li>Log Matching：如果两份日志包含一条拥有相同index和term的entry，那么这两份日志中所有给定index的entry都是相同的。</li>
+<li>Leader Completeness：如果一个log entry在一个给定的term当中提交，那么这个entry将会在所有term更高的leaders的日志当中出现。</li>
+<li>State Machine Safety：如果一个服务器将一个给定index的log entry应用到它的状态机上，那么其他服务器将永远不会在相同的index上应用一个不同的log entry。</li>
+</ul>
+</li>
+</ol>
+<h2 id="Raft基本定义"><a href="#Raft基本定义" class="headerlink" title="Raft基本定义"></a>Raft基本定义</h2><h3 id="服务器的三种状态"><a href="#服务器的三种状态" class="headerlink" title="服务器的三种状态"></a>服务器的三种状态</h3><p>一个Raft集群由若干个服务器组成。在任意给定的时刻，每个服务器处于下列三种状态中的一种：leader、follower、candidate。在正常运行时，仅有一个leader，其他服务器均为follower。follower都是被动的：它们不会自己发送请求，只会响应来自leader和candidate的请求。leader处理所有的客户端请求（若客户端联系follower，follower将请求重定向到leader）。candidate用于选举新的leader。</p>
+<p>上述三个状态的状态转移图如下：</p>
+<img src="figure4.png">
+
+<h3 id="时间划分：term"><a href="#时间划分：term" class="headerlink" title="时间划分：term"></a>时间划分：term</h3><p>Raft将时间划分为任意长度的terms，用连续的整数表示。每个term起始于选举，此时有一个或多个candidate尝试成为leader。如果某一个candidate赢得了选举，在这个term的剩余时间当中它将作为集群唯一的leader。如果选举不出leader，例如两个candidate同票，那么这个term直接结束，进入下一个term，开始一场新的选举。</p>
+<img src="figure5.png">
+
+<p>term在Raft中充当逻辑时钟的角色，使得服务器能够检测过时的信息，例如过时的leader。每个服务器存储一个<em>current term</em>数值，在每次通信时发送自己的current term。当某个服务器接收到一个包含比自己大的current term的请求时，它会更新current term为这个更大的值。如果这个服务器是candidate或者leader，他会返回follower状态。反之，当服务器接收到一个包含过时的、比自己小的term的请求时，它会拒绝这个请求。</p>
+<h3 id="RPC类型"><a href="#RPC类型" class="headerlink" title="RPC类型"></a>RPC类型</h3><p>Raft服务器之间使用RPC进行通信。基本的共识算法只需要两种类型的RPC：</p>
+<ol>
+<li>RequestVote RPC，由candidate初始化，用于请求其他服务器投票。</li>
+<li>AppendEntries RPC，由leader初始化，用于复制log entry和提供心跳信号。</li>
+</ol>
+<p>Raft还加入了第三种类型的RPC，用于在服务器之间传输snapshot。</p>
+<p>如果服务器没有及时收到响应，它们会重试RPC。服务器以并行的方式处理RPC。</p>
+<h2 id="Leader-election"><a href="#Leader-election" class="headerlink" title="Leader election"></a>Leader election</h2><p>Raft使用心跳机制来触发leader election。服务器启动时为follower状态，且只要它收到来自leader或candidate的有效的RPC，它就会维持follower状态。leader会定期发送心跳信号（即空的AppendEntries RPC）给所有follower来维持它的权威。如果一个follower在一段叫做<em>election timeout</em>的时间之后还没有收到通信，则它认为没有可见的leader，从而开始一次新的选举。</p>
+<p>为了开始一次选举，一个follower将它的current term加一，然后进入candidate状态。它会<strong>投票给自己</strong>，然后并行地在集群中的其他服务器上执行RequestVote RPC。</p>
+<p>candidate维持其状态，直到下列三者之一发生：</p>
+<ol>
+<li>它赢得了选举。当candidate收到整个集群（full cluster）中大多数服务器的相同term的投票时，它将赢得选举成为leader。在给定的term当中，服务器根据FCFS策略投票给第一个candidate。</li>
+<li>另一个服务器赢得选举，成为leader。在等待投票的过程中，如果candidate收到AppendEntries RPC，且发送者的term号大于等于服务器自身的term，则说明另一个服务器已经成为leader。本服务器转为follower。</li>
+<li>一段时间后，没有服务器赢得选举。此时每个服务器都会超时，并且开始一场新的选举。为避免这种情况无穷无尽地出现，Raft使用随机的election timeout，即从一个给定的间隔中随机选取（如150-300ms）。这使得在大多数情况下只有一个服务器超时，并且它在其他服务器超时之前就已经成为leader并发送了心跳信号。</li>
+</ol>
+<h2 id="Log-replication"><a href="#Log-replication" class="headerlink" title="Log replication"></a>Log replication</h2><p>leader处理客户端请求。每条客户端请求包含一条将被replicated state machines执行的指令。leader将这条指令以一个新的entry的形式添加到日志末尾，然后对其他服务器并行地执行AppendEntries RPC，以复制这条entry。当entry被<strong>安全复制</strong>之后，leader对其自己的状态机应用这条entry，然后返回执行结果给客户端。如果由于follower服务器失效、运行速度过慢或网络丢包等原因导致log entry无法被复制到该follower上面，leader会无穷无尽地重试AppendEntries RPC，即使它已经回复了客户端的请求也是如此，直到所有的follower都存储了所有的log entry。</p>
+<p>Log的形式如下图所示。</p>
+<img src="figure6.png">
+
+<p>当一条log entry能够被安全地应用到leader的状态机上时，我们称之为一条<em>被提交</em>的entry。Raft保证被提交的entry是持久的，且最终会被应用于所有有效的状态机上。当创建这条entry的leader将其复制到大多数服务器上之后，这条entry就被提交。同时，leader的日志中所有之前的entry也会被一并提交，包括先前其他leader创建的entry。</p>
+<p>leader持续追踪已被提交的最大index，并且在AppendEntries RPC中包含这个index。一旦一个follower得知某条log entry被提交，它就会将这条entry应用到自己的local状态机上。</p>
+<p>Raft维持下列两条性质，共同构成了上述提到的Log Matching Property：</p>
+<ol>
+<li>如果不同log当中的两条entry拥有相同的index和term，那么他们存储相同的指令。</li>
+<li>如果不同log当中的两条entry拥有相同的index和term，那么这两个log之前的entry完全一样。</li>
+</ol>
+<p>第一条性质的正确性来源于：leader至多创建一条给定index和term的entry，且entry不会在log中更改位置。第二条性质的正确性来源于AppendEntries的简单一致性检查。当发送AppendEntries RPC时，leader会包含上一个entry的index和term。如果follower没有在其日志中找到相同的index和term，它会拒绝新的entry的添加。</p>
+<p>在正常运行的情况下，leader和follower的日志是一致的。但是leader的失效会导致不一致，因为旧的leader可能没有完成其日志中所有entry的复制。下图为几种可能的情况：</p>
+<img src="figure7.png">
+
+<p>服务器的日志有可能缺失当前leader中的entry，也有可能拥有leader中没有的entry，或两者皆发生。且有可能横跨多个term。</p>
+<p>在Raft当中，leader通过强制follower复制其日志的方式来处理不一致。这意味着follower中冲突的日志将会被leader对应的entry覆盖。为了达到一致性，leader必须找到两份日志当中最后一个相同的entry，删除follower日志中在此之后的entry，然后向follower其发送leader日志中在此之后的所有entry。leader对每一个follower维护一个<em>nextIndex</em>变量，表示leader将发送给follower的下一个entry的index。当服务器成为leader的时候，它会将所有nextIndex值初始化为其log的下一个号码。如果entry不一致，AppendEntries一致性检查会在下一个AppendEntries RPC中失败。在收到拒绝之后，leader将nextIndex减1，然后重试AppendEntries RPC，直至成功，然后再向后添加正确的entry。</p>
+<h1 id="一些问题"><a href="#一些问题" class="headerlink" title="一些问题"></a>一些问题</h1><p>Q: Log的作用是什么？Log中存储的历史指令在什么时候需要用到？</p>
+<p>Q: Log中存储term号的作用？</p>
+<p>Q: 假如一个leader服务器的部分entry还没有被提交时，这个服务器就故障了，但故障时间很短，它马上又成为了leader。根据Leader Append-Only Rule，这个leader存储的未提交的错误entry不能被删除。请问这种情况有可能发生吗？</p>
+<p>Q: 当一个leader故障时，如何保证新选出来的leader的log是正确的？</p>
+<p>Q: entry什么时候被应用于follower的状态机上？还是说没有必要应用？</p>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/6-824-lab1/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    6.824 lab1
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">TinyKV Project 1 - Standalone KV</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

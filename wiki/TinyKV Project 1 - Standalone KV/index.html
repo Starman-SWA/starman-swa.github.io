@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>TinyKV Project 1 - Standalone KV | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="Go">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="任务目的熟悉Go语法，熟悉面向对象程序设计。 任务说明Project1需要实现一个单节点、非分布式的K&#x2F;V存储gRPC服务，本质上是对BadgerDB进行封装，以实现Put&#x2F;Delete&#x2F;Get&#x2F;Scan四种基本操作，以及对Column Family的支持。 该Project大致分为两部分：  StandAloneStorage类的实现。StandAlone">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TinyKV Project 1 - Standalone KV">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="任务目的熟悉Go语法，熟悉面向对象程序设计。 任务说明Project1需要实现一个单节点、非分布式的K&#x2F;V存储gRPC服务，本质上是对BadgerDB进行封装，以实现Put&#x2F;Delete&#x2F;Get&#x2F;Scan四种基本操作，以及对Column Family的支持。 该Project大致分为两部分：  StandAloneStorage类的实现。StandAlone">
+<meta property="og:locale">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-1.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-2.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-3.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-4.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-5.png">
+<meta property="og:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-6.png">
+<meta property="article:published_time" content="2021-11-18T07:36:49.000Z">
+<meta property="article:modified_time" content="2023-04-06T05:25:31.468Z">
+<meta property="article:tag" content="Go">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/1-1.png">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Entradas',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categorias',
+            TAGS: 'Etiquetas',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Buscar">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>Categorias</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file active"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-TinyKV Project 1 - Standalone KV" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/Go/">Go</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/Go/" rel="tag">Go</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">
+            <time datetime="2021-11-18T07:36:49.000Z" itemprop="datePublished">2021-11-18</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/TinyKV Project 1 - Standalone KV.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/TinyKV Project 1 - Standalone KV.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/TinyKV Project 1 - Standalone KV.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            TinyKV Project 1 - Standalone KV
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+        
+        
+            <h2 id="任务目的"><a href="#任务目的" class="headerlink" title="任务目的"></a>任务目的</h2><p>熟悉Go语法，熟悉面向对象程序设计。</p>
+<h2 id="任务说明"><a href="#任务说明" class="headerlink" title="任务说明"></a>任务说明</h2><p>Project1需要实现一个单节点、非分布式的K&#x2F;V存储gRPC服务，本质上是对BadgerDB进行封装，以实现Put&#x2F;Delete&#x2F;Get&#x2F;Scan四种基本操作，以及对Column Family的支持。</p>
+<p>该Project大致分为两部分：</p>
+<ol>
+<li>StandAloneStorage类的实现。StandAloneStorage类实现了Storage接口，Storage接口提供了用于操作K&#x2F;V数据库的Start、Stop、Write、Reader四个方法，对于StandAlone的数据库来说，这四个方法就是对底层的BadgerDB进行读写。</li>
+<li>Raw API的实现。Raw API为服务器对外暴露的API，用于接收请求，通过调用StandAloneStorage类的方法处理请求，然后返回响应。Raw API需要实现前述的四种基本操作。</li>
+</ol>
+<p>上述调用关系如下图所示：</p>
+<img src="1-1.png" width="500">
+
+<h2 id="任务实现"><a href="#任务实现" class="headerlink" title="任务实现"></a>任务实现</h2><h3 id="StandAloneStorage类的实现"><a href="#StandAloneStorage类的实现" class="headerlink" title="StandAloneStorage类的实现"></a>StandAloneStorage类的实现</h3><p>StandAloneStorage类的实现基本不需要直接使用BadgerDB的方法，因为engine_util包中已经封装了许多操作BadgerDB的方法，且支持了Column Family，直接调用即可。</p>
+<h4 id="func-NewStandAloneStorage"><a href="#func-NewStandAloneStorage" class="headerlink" title="func NewStandAloneStorage"></a>func NewStandAloneStorage</h4><p>该函数不是StandAloneStorage类的方法，接收config，返回一个新创建的StandAloneStorage指针。由于engines.go文件中封装的方法都以Engines类作为接收者，我们需要在创建StandAloneStorage的时候创建一个Engines实例。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> StandAloneStorage <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">// Your Data Here (1).</span></span><br><span class="line">    en  *engine_util.Engines</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewStandAloneStorage</span><span class="params">(conf *config.Config)</span></span> *StandAloneStorage &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    kvdb := engine_util.CreateDB(conf.DBPath, <span class="literal">false</span>)</span><br><span class="line">    raftdb := engine_util.CreateDB(conf.DBPath+<span class="string">&quot;/raft&quot;</span>, <span class="literal">true</span>)</span><br><span class="line">    <span class="keyword">return</span> &amp;StandAloneStorage&#123;engine_util.NewEngines(kvdb, raftdb, conf.DBPath, conf.DBPath+<span class="string">&quot;/raft&quot;</span>)&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Raft Engine在Project1中暂时不需要用到，但如果设为nil，自带的Engines.Close方法会尝试调用nil.Close()，引发错误，因此必须进行创建。</p>
+<h4 id="func-Start"><a href="#func-Start" class="headerlink" title="func Start"></a>func Start</h4><p>根据Badger官方文档，一个Badger数据库通过Open方法打开后即可使用，最后再通过Close方法关闭。NewStandAloneStorage函数中调用的CreateDB函数已经调用了Open方法，此时数据库已经可以使用，因此Start方法无需执行任何操作。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *StandAloneStorage)</span></span> Start() <span class="type">error</span> &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="func-Stop"><a href="#func-Stop" class="headerlink" title="func Stop"></a>func Stop</h4><p>Engines.Destroy一方面调用Engines.Close，关闭两个BadgerDB，另一方面删除目录。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *StandAloneStorage)</span></span> Stop() <span class="type">error</span> &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="keyword">return</span> s.en.Destroy()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="func-Write"><a href="#func-Write" class="headerlink" title="func Write"></a>func Write</h4><p>Write方法接收一个名为batch，元素类型为storage.Modify的切片。Modify类包含一个接口成员Data，Data可以为Put类型或者Delete类型，分别对应增加和删除操作。Put类型包含Key、Value和Cf三个成员，而Delete类型没有Value成员。</p>
+<p>engine_util包中的WriteBatch类提供了写入KV对到数据库的方法WriteToDB。对于Write方法的实现，我们遍历Modify切片，对于每个修改项利用WriteBatch.SetCF方法将其附加到WriteBatch的底层切片末尾（类型为badger.Entry），最后再调用WriteToDB进行写入。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *StandAloneStorage)</span></span> Write(ctx *kvrpcpb.Context, batch []storage.Modify) <span class="type">error</span> &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="keyword">var</span> wb engine_util.WriteBatch</span><br><span class="line">    <span class="keyword">for</span> _, m := <span class="keyword">range</span> batch &#123;</span><br><span class="line">        wb.SetCF(m.Cf(), m.Key(), m.Value())</span><br><span class="line">    &#125;</span><br><span class="line">    err := wb.WriteToDB(s.en.Kv)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当Modify.Data的类型为Delete时，没有Value成员，m.Value()会返回nil，在badger.Entry当中，Value成员为nil时也表示删除，所以上述代码能够正确处理添加和删除两种操作。</p>
+<h4 id="func-Reader"><a href="#func-Reader" class="headerlink" title="func Reader"></a>func Reader</h4><p>Reader方法需返回一个实现StorageReader接口的类，该接口包含GetCF、IterCF和Close三个方法。此处我定义了一个名为Reader的类实现该接口。</p>
+<p>engine_util包中的GetCF函数和NewCFIterator函数可用于实现前两个方法，这两个函数分别需要传入badger指针和badger.Txn指针，因此，我们的自定义Reader类，第一，需要包含StandAloneStorage成员，以访问badger；第二，需要包含badger.Txn成员，这个成员在IterCF方法中通过badger.NewTransaction函数进行创建。此外，为了在Close方法中关闭迭代器，我们还需要包含迭代器成员。综上所述，Reader类和Reader方法定义如下：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Reader <span class="keyword">struct</span> &#123;</span><br><span class="line">    s   *StandAloneStorage</span><br><span class="line">    txn *badger.Txn</span><br><span class="line">    it  *engine_util.BadgerIterator</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *StandAloneStorage)</span></span> Reader(ctx *kvrpcpb.Context) (storage.StorageReader, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="keyword">return</span> &amp;Reader&#123;s, <span class="literal">nil</span>, <span class="literal">nil</span>&#125;, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>GetCF方法和IterCF方法的实现参照前文。对于Close方法，需要执行关闭迭代器和丢弃txn两个操作。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r *Reader)</span></span> GetCF(cf <span class="type">string</span>, key []<span class="type">byte</span>) ([]<span class="type">byte</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    val, _ := engine_util.GetCF(r.s.en.Kv, cf, key)</span><br><span class="line">    <span class="keyword">return</span> val, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r *Reader)</span></span> IterCF(cf <span class="type">string</span>) engine_util.DBIterator &#123;</span><br><span class="line">    r.txn = r.s.en.Kv.NewTransaction(<span class="literal">false</span>)</span><br><span class="line">    r.it = engine_util.NewCFIterator(cf, r.txn)</span><br><span class="line">    <span class="keyword">return</span> r.it</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(r *Reader)</span></span> Close() &#123;</span><br><span class="line">    <span class="keyword">if</span> r.it != <span class="literal">nil</span> &#123;</span><br><span class="line">        r.it.Close()</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> r.txn != <span class="literal">nil</span> &#123;</span><br><span class="line">        r.txn.Discard()</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Raw-API的实现"><a href="#Raw-API的实现" class="headerlink" title="Raw API的实现"></a>Raw API的实现</h3><h4 id="func-RawGet"><a href="#func-RawGet" class="headerlink" title="func RawGet"></a>func RawGet</h4><p>调用Reader.GetCF即可。需要注意的点是resp.NotFound成员必须进行赋值。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(server *Server)</span></span> RawGet(_ context.Context, req *kvrpcpb.RawGetRequest) (*kvrpcpb.RawGetResponse, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    reader, err := server.storage.Reader(<span class="literal">nil</span>)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">defer</span> reader.Close()</span><br><span class="line"></span><br><span class="line">    val, _ := reader.GetCF(req.GetCf(), req.GetKey())</span><br><span class="line">    resp := <span class="built_in">new</span>(kvrpcpb.RawGetResponse)</span><br><span class="line">    <span class="keyword">if</span> val == <span class="literal">nil</span> &#123;</span><br><span class="line">        resp.NotFound = <span class="literal">true</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        resp.Value = val</span><br><span class="line">        resp.NotFound = <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> resp, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="func-RawPut"><a href="#func-RawPut" class="headerlink" title="func RawPut"></a>func RawPut</h4><p>RawPutRequest仅包含一个请求，因此只需要创建一个长度为1的Modify切片放入请求，然后调用Write。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(server *Server)</span></span> RawPut(_ context.Context, req *kvrpcpb.RawPutRequest) (*kvrpcpb.RawPutResponse, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="comment">// Hint: Consider using Storage.Modify to store data to be modified</span></span><br><span class="line">    batch := <span class="built_in">make</span>([]storage.Modify, <span class="number">1</span>)</span><br><span class="line">    batch[<span class="number">0</span>].Data = storage.Put&#123;Key: req.GetKey(), Value: req.GetValue(), Cf: req.GetCf()&#125;</span><br><span class="line"></span><br><span class="line">    err := server.storage.Write(<span class="literal">nil</span>, batch)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="func-RawDelete"><a href="#func-RawDelete" class="headerlink" title="func RawDelete"></a>func RawDelete</h4><p>同RawPut。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(server *Server)</span></span> RawDelete(_ context.Context, req *kvrpcpb.RawDeleteRequest) (*kvrpcpb.RawDeleteResponse, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="comment">// Hint: Consider using Storage.Modify to store data to be deleted</span></span><br><span class="line">    batch := <span class="built_in">make</span>([]storage.Modify, <span class="number">1</span>)</span><br><span class="line">    batch[<span class="number">0</span>].Data = storage.Delete&#123;Key: req.GetKey(), Cf: req.GetCf()&#125;</span><br><span class="line"></span><br><span class="line">    err := server.storage.Write(<span class="literal">nil</span>, batch)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span>, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="func-RawScan"><a href="#func-RawScan" class="headerlink" title="func RawScan"></a>func RawScan</h4><p>流程如下：</p>
+<ol>
+<li>获得Reader</li>
+<li>调用Reader.IterCF获得迭代器it</li>
+<li>将迭代器it定位至req.StartKey处</li>
+<li>创建切片，循环读取KV对放到切片末尾，直到KV对数量达到req.Limit，或者迭代器失效</li>
+<li>返回响应</li>
+</ol>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(server *Server)</span></span> RawScan(_ context.Context, req *kvrpcpb.RawScanRequest) (*kvrpcpb.RawScanResponse, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Your Code Here (1).</span></span><br><span class="line">    <span class="comment">// Hint: Consider using reader.IterCF</span></span><br><span class="line">    reader, err := server.storage.Reader(<span class="literal">nil</span>)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">defer</span> reader.Close()</span><br><span class="line"></span><br><span class="line">    it := reader.IterCF(req.GetCf())</span><br><span class="line">    it.Seek(req.StartKey)</span><br><span class="line">    kvs := <span class="built_in">make</span>([]*kvrpcpb.KvPair, <span class="number">0</span>)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="type">int</span>(req.GetLimit()) &amp;&amp; it.Valid(); i++ &#123;</span><br><span class="line">        val, _ := it.Item().Value()</span><br><span class="line">        <span class="keyword">var</span> Kv kvrpcpb.KvPair</span><br><span class="line">        <span class="keyword">if</span> val != <span class="literal">nil</span> &#123;</span><br><span class="line">            Kv = kvrpcpb.KvPair&#123;Key: it.Item().Key(), Value: val&#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            Kv = kvrpcpb.KvPair&#123;Key: it.Item().Key()&#125;</span><br><span class="line">        &#125;</span><br><span class="line">        kvs = <span class="built_in">append</span>(kvs, &amp;Kv)</span><br><span class="line">        it.Next()</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> &amp;kvrpcpb.RawScanResponse&#123;Kvs: kvs&#125;, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>容易出错的两个地方：一是没有reader没有关闭，二是迭代器没有先通过Seek方法定位到StartKey处。</p>
+<h2 id="错误与调试"><a href="#错误与调试" class="headerlink" title="错误与调试"></a>错误与调试</h2><h3 id="Engines的RaftDB留空"><a href="#Engines的RaftDB留空" class="headerlink" title="Engines的RaftDB留空"></a>Engines的RaftDB留空</h3><p>导致Destroy Engines时无法访问nil.Close()。</p>
+<img src="1-2.png">
+
+<h3 id="没有设置RawGetResponse-NotFound"><a href="#没有设置RawGetResponse-NotFound" class="headerlink" title="没有设置RawGetResponse.NotFound"></a>没有设置RawGetResponse.NotFound</h3><img src="1-3.png" width="500">
+
+<h3 id="RawGet的返回值问题"><a href="#RawGet的返回值问题" class="headerlink" title="RawGet的返回值问题"></a>RawGet的返回值问题</h3><p>当key not found时，RawGet算作正常返回，不应该返回error。</p>
+<img src="1-4.png" width="500">
+
+<h3 id="未判断迭代器是否有效"><a href="#未判断迭代器是否有效" class="headerlink" title="未判断迭代器是否有效"></a>未判断迭代器是否有效</h3><img src="1-5.png">
+
+<h3 id="未将迭代器Seek到StartKey位置"><a href="#未将迭代器Seek到StartKey位置" class="headerlink" title="未将迭代器Seek到StartKey位置"></a>未将迭代器Seek到StartKey位置</h3><img src="1-6.png" width="500">
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+        <a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/" id="article-nav-newer" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más nuevo</strong>
+            <div class="article-nav-title">
+                
+                    In Search of an Understandable Consensus Algorithm - Raft
+                
+            </div>
+        </a>
+    
+    
+        <a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Más viejo</strong>
+            <div class="article-nav-title">A Tour of Go学习笔记</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>

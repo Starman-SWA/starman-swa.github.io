@@ -1,0 +1,545 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Starman&#39;s Blog</title>
+  
+  <subtitle>去码头整点薯条</subtitle>
+  <link href="https://starman-swa.github.io/atom.xml" rel="self"/>
+  
+  <link href="https://starman-swa.github.io/"/>
+  <updated>2023-04-06T06:08:43.153Z</updated>
+  <id>https://starman-swa.github.io/</id>
+  
+  <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>C++11中的负数取模问题</title>
+    <link href="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/"/>
+    <id>https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/</id>
+    <published>2023-04-06T05:29:22.000Z</published>
+    <updated>2023-04-06T06:08:43.153Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;ul&gt;
+&lt;li&gt;今天在做&lt;a href=&quot;https://leetcode.cn/problems/convert-to-base-2/description/&quot;&gt;1017. 负二进制转换 -</summary>
+        
+      
+    
+    
+    
+    <category term="C++" scheme="https://starman-swa.github.io/categories/C/"/>
+    
+    
+    <category term="C++11" scheme="https://starman-swa.github.io/tags/C-11/"/>
+    
+    <category term="进制转换" scheme="https://starman-swa.github.io/tags/%E8%BF%9B%E5%88%B6%E8%BD%AC%E6%8D%A2/"/>
+    
+    <category term="负数取模" scheme="https://starman-swa.github.io/tags/%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>raft相关问题</title>
+    <link href="https://starman-swa.github.io/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/"/>
+    <id>https://starman-swa.github.io/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/</id>
+    <published>2023-03-29T11:13:47.000Z</published>
+    <updated>2023-04-06T05:25:31.495Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;Raft的一致性复制过程&quot;&gt;&lt;a href=&quot;#Raft的一致性复制过程&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>bzip2相关论文阅读笔记</title>
+    <link href="https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/"/>
+    <id>https://starman-swa.github.io/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/</id>
+    <published>2023-03-21T14:05:52.000Z</published>
+    <updated>2023-04-06T05:25:31.485Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;Parallel-Data-Compression-With-Bzip2（分块压缩）&quot;&gt;&lt;a href=&quot;#Parallel-Data-Compression-With-Bzip2（分块压缩）&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="论文阅读" scheme="https://starman-swa.github.io/categories/%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB/"/>
+    
+    
+    <category term="压缩" scheme="https://starman-swa.github.io/tags/%E5%8E%8B%E7%BC%A9/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>bsdiff相关论文阅读笔记</title>
+    <link href="https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/"/>
+    <id>https://starman-swa.github.io/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/</id>
+    <published>2023-03-21T13:57:13.000Z</published>
+    <updated>2023-04-06T05:25:31.476Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;基于play-framework的APP托管平台的设计与实现（北京邮电大学-硕士论文-2018）&quot;&gt;&lt;a href=&quot;#基于play-framework的APP托管平台的设计与实现（北京邮电大学-硕士论文-2018）&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="论文阅读" scheme="https://starman-swa.github.io/categories/%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB/"/>
+    
+    
+    <category term="差量压缩" scheme="https://starman-swa.github.io/tags/%E5%B7%AE%E9%87%8F%E5%8E%8B%E7%BC%A9/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>easy_note源码阅读</title>
+    <link href="https://starman-swa.github.io/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/"/>
+    <id>https://starman-swa.github.io/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/</id>
+    <published>2023-02-01T13:51:56.000Z</published>
+    <updated>2023-04-06T05:25:31.492Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;简介&quot;&gt;&lt;a href=&quot;#简介&quot; class=&quot;headerlink&quot; title=&quot;简介&quot;&gt;&lt;/a&gt;简介&lt;/h1&gt;&lt;p&gt;easy_note为一个hertz+kitex+gorm样例项目。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;项目地址：&lt;a</summary>
+        
+      
+    
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/categories/Go/"/>
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+    <category term="后端" scheme="https://starman-swa.github.io/tags/%E5%90%8E%E7%AB%AF/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>6.824 lab3b</title>
+    <link href="https://starman-swa.github.io/wiki/6-824-lab3b/"/>
+    <id>https://starman-swa.github.io/wiki/6-824-lab3b/</id>
+    <published>2023-01-25T09:00:04.000Z</published>
+    <updated>2023-04-06T05:25:31.456Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;设计思路&quot;&gt;&lt;a href=&quot;#设计思路&quot; class=&quot;headerlink&quot; title=&quot;设计思路&quot;&gt;&lt;/a&gt;设计思路&lt;/h1&gt;&lt;h4 id=&quot;实验3b需要解决的问题：&quot;&gt;&lt;a href=&quot;#实验3b需要解决的问题：&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+    <category term="KV数据库" scheme="https://starman-swa.github.io/tags/KV%E6%95%B0%E6%8D%AE%E5%BA%93/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>6.824 lab3a</title>
+    <link href="https://starman-swa.github.io/wiki/6-824-lab3a/"/>
+    <id>https://starman-swa.github.io/wiki/6-824-lab3a/</id>
+    <published>2023-01-15T10:28:26.000Z</published>
+    <updated>2023-04-06T05:25:31.456Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;简介&quot;&gt;&lt;a href=&quot;#简介&quot; class=&quot;headerlink&quot; title=&quot;简介&quot;&gt;&lt;/a&gt;简介&lt;/h1&gt;&lt;h2 id=&quot;相关资料&quot;&gt;&lt;a href=&quot;#相关资料&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+    <category term="KV数据库" scheme="https://starman-swa.github.io/tags/KV%E6%95%B0%E6%8D%AE%E5%BA%93/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Paxos算法笔记</title>
+    <link href="https://starman-swa.github.io/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/"/>
+    <id>https://starman-swa.github.io/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/</id>
+    <published>2023-01-12T08:02:47.000Z</published>
+    <updated>2023-04-06T05:25:31.462Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;Basic-Paxos&quot;&gt;&lt;a href=&quot;#Basic-Paxos&quot; class=&quot;headerlink&quot; title=&quot;Basic Paxos&quot;&gt;&lt;/a&gt;Basic Paxos&lt;/h1&gt;&lt;p&gt;Basic Paxos工作流程如下：&lt;/p&gt;
+&lt;img</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Paxos" scheme="https://starman-swa.github.io/tags/Paxos/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>6.824 lab2c, 2d</title>
+    <link href="https://starman-swa.github.io/wiki/6-824-lab2c-2d/"/>
+    <id>https://starman-swa.github.io/wiki/6-824-lab2c-2d/</id>
+    <published>2022-11-10T16:52:35.000Z</published>
+    <updated>2023-04-06T05:25:31.453Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;Lab-2C&quot;&gt;&lt;a href=&quot;#Lab-2C&quot; class=&quot;headerlink&quot; title=&quot;Lab 2C&quot;&gt;&lt;/a&gt;Lab</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>6.824 lab2a, 2b</title>
+    <link href="https://starman-swa.github.io/wiki/6-824-lab2a-2b/"/>
+    <id>https://starman-swa.github.io/wiki/6-824-lab2a-2b/</id>
+    <published>2022-10-19T11:54:47.000Z</published>
+    <updated>2023-04-06T05:25:31.452Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;简介&quot;&gt;&lt;a href=&quot;#简介&quot; class=&quot;headerlink&quot; title=&quot;简介&quot;&gt;&lt;/a&gt;简介&lt;/h1&gt;&lt;p&gt;6.824 lab2a、2b要求实现raft算法的领导选举和日志追加部分。&lt;/p&gt;
+&lt;h2 id=&quot;相关资料&quot;&gt;&lt;a</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>6.824 lab1</title>
+    <link href="https://starman-swa.github.io/wiki/6-824-lab1/"/>
+    <id>https://starman-swa.github.io/wiki/6-824-lab1/</id>
+    <published>2022-10-05T08:33:25.000Z</published>
+    <updated>2023-04-06T05:25:31.452Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;6-824简介&quot;&gt;&lt;a href=&quot;#6-824简介&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+    <category term="MapReduce" scheme="https://starman-swa.github.io/tags/MapReduce/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>In Search of an Understandable Consensus Algorithm - Raft</title>
+    <link href="https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/"/>
+    <id>https://starman-swa.github.io/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/</id>
+    <published>2021-12-13T07:43:06.000Z</published>
+    <updated>2023-04-06T05:25:31.457Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;摘要&quot;&gt;&lt;a href=&quot;#摘要&quot; class=&quot;headerlink&quot; title=&quot;摘要&quot;&gt;&lt;/a&gt;摘要&lt;/h1&gt;&lt;p&gt;Raft是一个用于管理replicated log的共识算法（consensus</summary>
+        
+      
+    
+    
+    
+    <category term="分布式" scheme="https://starman-swa.github.io/categories/%E5%88%86%E5%B8%83%E5%BC%8F/"/>
+    
+    
+    <category term="Raft" scheme="https://starman-swa.github.io/tags/Raft/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>TinyKV Project 1 - Standalone KV</title>
+    <link href="https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/"/>
+    <id>https://starman-swa.github.io/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/</id>
+    <published>2021-11-18T07:36:49.000Z</published>
+    <updated>2023-04-06T05:25:31.468Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h2 id=&quot;任务目的&quot;&gt;&lt;a href=&quot;#任务目的&quot; class=&quot;headerlink&quot; title=&quot;任务目的&quot;&gt;&lt;/a&gt;任务目的&lt;/h2&gt;&lt;p&gt;熟悉Go语法，熟悉面向对象程序设计。&lt;/p&gt;
+&lt;h2 id=&quot;任务说明&quot;&gt;&lt;a href=&quot;#任务说明&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/categories/Go/"/>
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>A Tour of Go学习笔记</title>
+    <link href="https://starman-swa.github.io/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/"/>
+    <id>https://starman-swa.github.io/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/</id>
+    <published>2021-07-29T07:29:10.000Z</published>
+    <updated>2023-04-06T05:25:31.457Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;下载A-Tour-of-Go本地中文版&quot;&gt;&lt;a href=&quot;#下载A-Tour-of-Go本地中文版&quot; class=&quot;headerlink&quot; title=&quot;下载A Tour of Go本地中文版&quot;&gt;&lt;/a&gt;下载A Tour of Go本地中文版&lt;/h1&gt;&lt;p&gt;A</summary>
+        
+      
+    
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/categories/Go/"/>
+    
+    
+    <category term="Go" scheme="https://starman-swa.github.io/tags/Go/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Prim算法 vs Dijkstra算法</title>
+    <link href="https://starman-swa.github.io/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/"/>
+    <id>https://starman-swa.github.io/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/</id>
+    <published>2021-07-25T11:32:43.000Z</published>
+    <updated>2023-04-06T05:25:31.467Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;p&gt;Prim算法用于求最小生成树，Dijkstra算法用于求单源最短路径。两者的用途不同，但算法实现非常类似，都采用了贪心算法，都是将顶点从一个集合加到另一个集合当中。但不同的是两者的选点标准：假设已加入的点集为U，未加入的点集为V。Prim算法在V中选取与U中任意顶点&lt;str</summary>
+        
+      
+    
+    
+    
+    <category term="算法" scheme="https://starman-swa.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="图论" scheme="https://starman-swa.github.io/tags/%E5%9B%BE%E8%AE%BA/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>0-1背包问题笔记</title>
+    <link href="https://starman-swa.github.io/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/"/>
+    <id>https://starman-swa.github.io/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/</id>
+    <published>2021-07-16T12:13:36.000Z</published>
+    <updated>2023-04-06T05:25:31.451Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;一、原始版本&quot;&gt;&lt;a href=&quot;#一、原始版本&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="算法" scheme="https://starman-swa.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="动态规划" scheme="https://starman-swa.github.io/tags/%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>我的实用软件清单</title>
+    <link href="https://starman-swa.github.io/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/"/>
+    <id>https://starman-swa.github.io/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/</id>
+    <published>2021-07-10T08:35:24.000Z</published>
+    <updated>2023-04-06T05:25:31.499Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;p&gt;我的电脑上装了很多奇奇怪怪的小工具，今天做一个总结，以供查阅。&lt;/p&gt;
+&lt;h4 id=&quot;一、系统工具类&quot;&gt;&lt;a href=&quot;#一、系统工具类&quot; class=&quot;headerlink&quot; title=&quot;一、系统工具类&quot;&gt;&lt;/a&gt;一、系统工具类&lt;/h4&gt;&lt;h5</summary>
+        
+      
+    
+    
+    
+    <category term="软件" scheme="https://starman-swa.github.io/categories/%E8%BD%AF%E4%BB%B6/"/>
+    
+    
+    <category term="软件" scheme="https://starman-swa.github.io/tags/%E8%BD%AF%E4%BB%B6/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>记一次几乎踩了所有坑的Ubuntu双系统安装</title>
+    <link href="https://starman-swa.github.io/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/"/>
+    <id>https://starman-swa.github.io/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/</id>
+    <published>2021-01-14T17:20:37.000Z</published>
+    <updated>2023-04-06T05:25:31.499Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;p&gt;我的破本本用虚拟机跑Linux实在是顶不住，于是我昨天晚上一时兴起，想要给笔记本装 Windows 10 + Ubuntu 20.04</summary>
+        
+      
+    
+    
+    
+    <category term="Linux" scheme="https://starman-swa.github.io/categories/Linux/"/>
+    
+    
+    <category term="Linux" scheme="https://starman-swa.github.io/tags/Linux/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>两道求最大面积的题目在解法上的不同</title>
+    <link href="https://starman-swa.github.io/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/"/>
+    <id>https://starman-swa.github.io/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/</id>
+    <published>2021-01-01T13:18:59.000Z</published>
+    <updated>2023-04-06T05:25:31.497Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;p&gt;今天发现两道看似十分相似但实际上有很大不同的题目，差点转不过弯来，分别是&lt;strong&gt;LeetCode 11 盛最多水的容器&lt;/strong&gt;和&lt;strong&gt;LeetCode 84 柱状图中最大的矩形&lt;/strong&gt;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;LeetCode</summary>
+        
+      
+    
+    
+    
+    <category term="算法" scheme="https://starman-swa.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="单调栈" scheme="https://starman-swa.github.io/tags/%E5%8D%95%E8%B0%83%E6%A0%88/"/>
+    
+    <category term="双指针" scheme="https://starman-swa.github.io/tags/%E5%8F%8C%E6%8C%87%E9%92%88/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>区间调度问题</title>
+    <link href="https://starman-swa.github.io/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/"/>
+    <id>https://starman-swa.github.io/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/</id>
+    <published>2020-12-28T14:58:17.000Z</published>
+    <updated>2023-04-06T05:25:31.498Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h2 id=&quot;一、区间不相交问题&quot;&gt;&lt;a href=&quot;#一、区间不相交问题&quot; class=&quot;headerlink&quot; title=&quot;一、区间不相交问题&quot;&gt;&lt;/a&gt;一、区间不相交问题&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;给出N个开区间(start,</summary>
+        
+      
+    
+    
+    
+    <category term="算法" scheme="https://starman-swa.github.io/categories/%E7%AE%97%E6%B3%95/"/>
+    
+    
+    <category term="贪心" scheme="https://starman-swa.github.io/tags/%E8%B4%AA%E5%BF%83/"/>
+    
+  </entry>
+  
+</feed>
