@@ -6,17 +6,44 @@
   <link href="https://starman-swa.github.io/atom.xml" rel="self"/>
   
   <link href="https://starman-swa.github.io/"/>
-  <updated>2023-04-06T06:08:43.153Z</updated>
+  <updated>2023-11-18T12:56:08.083Z</updated>
   <id>https://starman-swa.github.io/</id>
   
   <generator uri="https://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>基于C++的Web服务器</title>
+    <link href="https://starman-swa.github.io/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/"/>
+    <id>https://starman-swa.github.io/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/</id>
+    <published>2023-11-15T09:17:09.000Z</published>
+    <updated>2023-11-18T12:56:08.083Z</updated>
+    
+    
+      
+      
+        
+        
+    <summary type="html">&lt;h1 id=&quot;项目简介&quot;&gt;&lt;a href=&quot;#项目简介&quot; class=&quot;headerlink&quot; title=&quot;项目简介&quot;&gt;&lt;/a&gt;项目简介&lt;/h1&gt;&lt;h2 id=&quot;编程模型&quot;&gt;&lt;a href=&quot;#编程模型&quot; class=&quot;headerlink&quot;</summary>
+        
+      
+    
+    
+    
+    <category term="C++" scheme="https://starman-swa.github.io/categories/C/"/>
+    
+    
+    <category term="后端" scheme="https://starman-swa.github.io/tags/%E5%90%8E%E7%AB%AF/"/>
+    
+    <category term="网络编程" scheme="https://starman-swa.github.io/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/"/>
+    
+  </entry>
   
   <entry>
     <title>C++11中的负数取模问题</title>
     <link href="https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/"/>
     <id>https://starman-swa.github.io/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/</id>
     <published>2023-04-06T05:29:22.000Z</published>
-    <updated>2023-04-06T06:08:43.153Z</updated>
+    <updated>2023-04-06T06:10:11.773Z</updated>
     
     
       
@@ -513,32 +540,6 @@
     <category term="单调栈" scheme="https://starman-swa.github.io/tags/%E5%8D%95%E8%B0%83%E6%A0%88/"/>
     
     <category term="双指针" scheme="https://starman-swa.github.io/tags/%E5%8F%8C%E6%8C%87%E9%92%88/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>区间调度问题</title>
-    <link href="https://starman-swa.github.io/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/"/>
-    <id>https://starman-swa.github.io/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/</id>
-    <published>2020-12-28T14:58:17.000Z</published>
-    <updated>2023-04-06T05:25:31.498Z</updated>
-    
-    
-      
-      
-        
-        
-    <summary type="html">&lt;h2 id=&quot;一、区间不相交问题&quot;&gt;&lt;a href=&quot;#一、区间不相交问题&quot; class=&quot;headerlink&quot; title=&quot;一、区间不相交问题&quot;&gt;&lt;/a&gt;一、区间不相交问题&lt;/h2&gt;&lt;blockquote&gt;
-&lt;p&gt;给出N个开区间(start,</summary>
-        
-      
-    
-    
-    
-    <category term="算法" scheme="https://starman-swa.github.io/categories/%E7%AE%97%E6%B3%95/"/>
-    
-    
-    <category term="贪心" scheme="https://starman-swa.github.io/tags/%E8%B4%AA%E5%BF%83/"/>
     
   </entry>
   

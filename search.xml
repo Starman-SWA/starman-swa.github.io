@@ -77,6 +77,125 @@
       </tags>
   </entry>
   <entry>
+    <title>6.824 lab2c, 2d</title>
+    <url>/wiki/6-824-lab2c-2d/</url>
+    <content><![CDATA[<h1 id="Lab-2C"><a href="#Lab-2C" class="headerlink" title="Lab 2C"></a>Lab 2C</h1><p>实验2C要求实现Raft服务器currentTerm、votedFor和log三个状态的持久化，难度不高，只需要填充相应函数，并在<strong>每次回复RPC之前</strong>和<strong>这三个状态被修改之后</strong>调用持久化函数。</p>
+<p>但实验2C的测试还是有可能因为2A、2B的实现不完善而发生错误。</p>
+<p>我在测试时多次碰到该错误：</p>
+<blockquote>
+<p>— FAIL: TestFigure8Unreliable2C (41.85s)<br>config.go:609: one(5768) failed to reach agreement</p>
+</blockquote>
+<p>经过调试和查阅资料，发现了之前实验的两个错误实现：</p>
+<ul>
+<li>在AppendEntries RPC当中直接将prevLogIndex之后的所有条目截断。当领导者向参与者发送的AppendEntries请求过期，其中包含的日志条目是参与者日志条目的子集的时候，这种实现会导致参与者的一部分正确日志被舍弃。正确的实现方法是严格按照论文，只截断冲突的日志。</li>
+<li>原实现中，领导者收到AppendEntries的成功响应之后会执行<code>nextIndex += len(args.Entries)</code>。然而领导者在发送RPC之前已经释放了互斥锁，其nextIndex有可能被修改。正确实现应该是<code>nextIndex = prevLogIndex + len(args.Entries) + 1</code>。</li>
+</ul>
+<p>此外，还进行了下列优化，顺利一次性通过了2A、2B、2C：</p>
+<ul>
+<li><p>TIME_STEP设为10ms，原实现与心跳超时相同。</p>
+</li>
+<li><p>选举超时设为[300, 450]ms，心跳超时设置为50ms。</p>
+</li>
+</ul>
+<h1 id="Lab-2D"><a href="#Lab-2D" class="headerlink" title="Lab 2D"></a>Lab 2D</h1><p>实验2D要求实现快照功能。</p>
+<p>实验官网的Hint给出了实现思路，按照思路，第一步是实现日志下标不从0开始存储。在我之前的实验中，日志下标以条目中的<code>CommandIndex</code>字段为准，故不需要做太多的修改。我原本的思路是在Raft状态中新增<code>lastIncludedIndex</code>和<code>lastIncludedTerm</code>两个字段，后来发现直接使用<code>rf.log[0].CommandIndex</code>和<code>rf.log[0].CommandTerm</code>来存储可以避免许多判断。</p>
+<p>然而当我实现了第一步之后再去跑2C的测试时，发现总是会发生apply不一致或者不能reach agreement的错误，经过一番调试之后最终发现是<code>AppendEntries()</code>当中一个if的判断条件写错了，把<code>args.Entries</code>的长度写成了<code>rf.log</code>的长度。。。。。。。。。修改此bug后，顺利通过10次2C测试。</p>
+<p>在跑2D的测试时发现另外的问题：当需要snapshot的时候，applyCh会阻塞，导致整个applyLogs线程阻塞。而由于applyLogs线程持有了互斥锁，因此整个服务器都会阻塞。解决方法是使用select语句：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> &#123;</span><br><span class="line"><span class="keyword">case</span> rf.applyCh &lt;- log:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log success, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line"><span class="keyword">default</span>:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log fail due to block, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line">    rf.lastApplied--</span><br><span class="line">    <span class="keyword">goto</span> applyLogsLoopExit</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当case中的写通道指令被阻塞时，select会转而执行default分支。需要注意不能在default分支中写break来退出外层循环，break的作用范围仅限于select，应该使用goto。</p>
+<hr>
+<p>实现日志的部分存储之后就可以着手开始实现Snapshot函数和InstallSnapshot RPC。实现前，要先理解Snapshot的指令和数据流向：上层应用在不需要前一部分的日志时，会调用Raft的<code>Snapshot</code>方法，其<code>snapshot</code>参数是上层应用已经创建好的快照。<code>Snapshot</code>方法需要做的是：截断日志，然后将快照<code>snapshot</code>持久化到持久性存储当中。当领导者发现某个参与者的<code>nextIndex</code>小于等于当前的<code>lastIncludedIndex</code>时，需要发送InstallSnapshot RPC，此时通过<code>Persister.ReadSnapshot</code>方法可从持久化存储中读取快照进行发送。</p>
+<p>由config.go第247行还可以知道：<code>snapshot</code>字节数组使用labgob包编解码，首先包含<code>lastIncludedIndex</code>数值，然后顺序包含<code>lastIncludedIndex</code>及之前的所有日志条目。</p>
+<hr>
+<p>Snapshot的函数调用关系比较难理解，需要参考<a href="https://pdos.csail.mit.edu/6.824/notes/raft_diagram.pdf">Raft Diagram</a>。</p>
+<img src="raft_diagram_1.png">
+
+<ul>
+<li><p>Service为使用Raft Code作为其一致性协议的上层应用，可以是K&#x2F;V数据库等。</p>
+</li>
+<li><p>为了避免在Raft Code的内存中保留过长的日志条目，Service会定期将已经apply的一部分日志转换为snapshot。<strong>Snapshot的创建仅由Service执行。</strong>当Snapshot被创建之后，Service会调用<code>Snapshot()</code>方法通知Raft Code对其内存中的日志条目进行截断，方法的参数为已经创建的snapshot字节切片，以及<code>lastIncludedIndex</code>。</p>
+</li>
+<li><p>Raft Code接收到Service的<code>Snapshot()</code>请求之后，对其日志中下标为<code>lastIncludedIndex</code>及之前的条目截断，<strong>并将snapshot保存到内存当中，用于可能的InstallSnapshot RPC</strong>。当Raft Code接收到snapshot后，需要立即将其持久化。</p>
+</li>
+<li><p>Raft Code崩溃重启时，Service会调用<code>ReadSnapshot()</code>方法读取已经保存的snapshot，<strong>并进行apply，Raft Code无需再apply这部分状态</strong>。<strong>然而，为了用于可能的InstallSnapshot RPC，Raft Code也需要立即调用<code>ReadSnapshot()</code>方法将snapshot保存到内存中，注意这个调用关系在Raft Diagram当中没有体现</strong>。</p>
+</li>
+<li><p>如果领导者的<code>nextIndex[i]</code>小于等于<code>lastIncludedIndex</code>，说明此时节点i由于某种原因严重落后，需要领导者的snapshot中的日志条目。领导者发送<code>InstallSnapshot RPC</code>给节点i。</p>
+</li>
+<li><p>节点i收到<code>InstallSnapshot RPC</code>请求后，<strong>将snapshot通过applyCh应用到Service的状态机上</strong>。然后，Service会调用<code>CondInstallSnapshot()</code>告知Raft Code其已经将刚刚传入的snapshot应用，该方法为旧版6.824实验中的冗余要求，直接返回<code>true</code>即可。</p>
+</li>
+</ul>
+<hr>
+<p>在熟悉以上架构的基础上就可以很容易地写出代码。同样的，创建一个后台goroutine，重复检查领导者的<code>nextIndex</code>数组，当发现<code>nextIndex[i]&lt;=lastIncludedIndex</code>的时候开始发送<code>InstallSnapshot RPC</code>。</p>
+<p>可能会出错的地方有：</p>
+<ul>
+<li><p>每次调用<code>rf.persister.SaveStateAndSnapshot()</code>方法的时候都必须传入当前内存中的snapshot，不能在不需要更新snapshot的时候传入nil，否则会覆盖持久化存储当中的snapshot。</p>
+</li>
+<li><p>当使用<code>labgob</code>包对snapshot进行解码之后，由于snapshot当中可能包含当前解码位置的指针，snapshot的二进制内容会发生变化。<code>InstallSnapshot RPC</code>接收者实现的第5个步骤需要用到snapshot的<code>lastIncludedIndex</code>，此时不能通过解码snapshot的方式读取该值，而必须使用<code>args.LastIncludedIndex</code>，否则会出错。</p>
+</li>
+<li><p>在<code>InstallSnapshot RPC</code>中，persist的时机很重要。必须保证在snapshot和rf.log[0]（即lastIncluded信息）同时更改之后才能persist，不能只更新了某个值就persist。</p>
+</li>
+<li><p>在领导者发送snapshot的不同chunk的过程中，必须保证参数中的<code>Term</code>、<code>LastIncludeIndex</code>和<code>LastIncludedTerm</code>保持不变，即使领导者的状态已经发生了改变。即要把这几个变量提出循环外。在发送snapshot的多个chunk的过程中，领导者的snapshot可能会发生追加，我目前采用的策略是继续发送原有的snapshot。猜测更好的策略应当是丢弃原有的snapshot，重新发送新的snapshot，以节省网络带宽。这一点留待后续优化。</p>
+</li>
+</ul>
+<hr>
+<h1 id="感想"><a href="#感想" class="headerlink" title="感想"></a>感想</h1><p>6.824的lab2到这里就告一段落了，总算是完整地实现了Raft算法，还蛮有成就感的。在完成这四个小实验的过程中，我也能明显地感觉到自己在代码调试能力和写作能力这两个方面的提升。代码调试上，面对密密麻麻，动辄几个GB的调试信息，我不再有畏难心理了。我学会了在代码恰当的地方输出结构化的调试信息，在调试信息中寻找关键点，进行调试。可以说，我离”松弛感“又更进一步了。在写作能力上，从lab2a到lab2d，我也在逐渐摆脱”报告文学“。总而言之，6.824陪伴我度过了一段快乐的时光。</p>
+]]></content>
+      <categories>
+        <category>分布式</category>
+      </categories>
+      <tags>
+        <tag>Raft</tag>
+        <tag>Go</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>6.824 lab1</title>
+    <url>/wiki/6-824-lab1/</url>
+    <content><![CDATA[<h1 id="6-824简介"><a href="#6-824简介" class="headerlink" title="6.824简介"></a>6.824简介</h1><p>6.824为MIT的分布式系统课程。同TinyKV类似，6.824的主要内容也为实现Raft共识算法。以笔者做完Lab1的感受，相比TinyKV，6.824仅提供了基本框架，在测试用例当中并未对实现过程中所使用的数据结构进行具体要求，因此编程自由度较高。</p>
+<h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><p><a href="https://pdos.csail.mit.edu/6.824/index.html">6.824 Home Page: Spring 2022</a></p>
+<p><a href="https://www.zhihu.com/column/c_1273718607160393728">MIT6.824分布式系统课程中文翻译 - 知乎 (zhihu.com)</a></p>
+<p><a href="https://www.zhihu.com/question/29597104">如何的才能更好地学习 MIT6.824 分布式系统课程？ - 知乎 (zhihu.com)</a></p>
+<p><a href="https://www.bilibili.com/video/BV1x7411M7Sf/?vd_source=9d62693ecec9580875ee46c2c032eb29">【MIT 6.824 Distributed Systems Spring 2020 分布式系统 中文翻译版合集】_哔哩哔哩_bilibili</a></p>
+<h1 id="实验要求"><a href="#实验要求" class="headerlink" title="实验要求"></a>实验要求</h1><p>实现一个分布式的MapReduce系统，实验文档中文翻译参照：</p>
+<p><a href="https://www.cnblogs.com/greenty1208/p/13161064.html">【翻译】6.824 lab1 （自用不负责） - Greenty - 博客园 (cnblogs.com)</a></p>
+<h1 id="MapReduce"><a href="#MapReduce" class="headerlink" title="MapReduce"></a>MapReduce</h1><p>MapReduce是Google提出的一个软件架构，用于大规模数据集的并行运算。MapReduce包含Map和Reduce两个步骤，可以用函数来表示。</p>
+<ul>
+<li><code>Map</code>函数读取一个文件，根据文件内容输出一个称为<strong>中间件</strong>的键值对列表。每个<code>Map</code>函数分别处理一个输入文件。</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Map</span><span class="params">(fileName <span class="type">string</span>, content <span class="type">string</span>)</span></span> intermediates []KVPair</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>所有<code>Map</code>函数输出的中间件集合在一起，作为完整的中间件。对于中间件中每个不同的key对应的所有键值对，分别执行一个<code>Reduce</code>函数。<code>Reduce</code>函数根据键值对列表的内容输出这个key对应的一个value。</li>
+</ul>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Reduce</span><span class="params">(key <span class="type">string</span>, values []<span class="type">string</span>)</span></span> <span class="type">string</span></span><br></pre></td></tr></table></figure>
+
+<p>整个MapReduce流程的输入为文件列表，输出为键值对列表。</p>
+<h1 id="系统实现"><a href="#系统实现" class="headerlink" title="系统实现"></a>系统实现</h1><p>MapReduce的分布式执行系统包含一个master（coordinator）和若干个worker。master负责任务分发、协调任务的运行，worker负责执行具体的map和reduce函数。master启动后，执行注册RPC的操作，使得其方法对worker可见。worker通过本地网络对master的方法进行远程调用。</p>
+<p><strong>注意：使用RPC包时，外部方法名称和被传输结构体当中的成员名称的首字母均需要大写，否则会出现数据无法正常传输的错误。</strong></p>
+<h2 id="worker"><a href="#worker" class="headerlink" title="worker"></a>worker</h2><p>由于master无法知道worker的存在，也无法知道worker是否故障，因此worker的主循环中需要反复向master请求分发任务，在任务完成之后需要向master发送完成信息，分别对应master的<code>DispatchTask</code>和<code>HandleTaskDone</code>两个方法。worker主循环如下，master返回<code>TASK_WAIT</code>时代表map任务未全部完成，worker等待一段时间之后再次向master请求可能的reduce任务或者超时的map任务。</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span> &#123;</span><br><span class="line">    reply := SendRequest()</span><br><span class="line">    <span class="keyword">if</span> reply == <span class="literal">nil</span> || reply.TaskType == TASK_NONE &#123;</span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> reply.TaskType == TASK_MAP &#123;</span><br><span class="line">        doMap(reply, mapf)</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> reply.TaskType == TASK_REDUCE &#123;</span><br><span class="line">        doReduce(reply, reducef)</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// TASK_WAIT</span></span><br><span class="line">        time.Sleep(<span class="number">100</span> * time.Millisecond)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="master"><a href="#master" class="headerlink" title="master"></a>master</h1><p>master结构体定义如下：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Coordinator <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">// Your definitions here.</span></span><br><span class="line">    files   []<span class="type">string</span></span><br><span class="line">    nReduce <span class="type">int</span></span><br><span class="line">    nodeId  <span class="type">int</span> <span class="comment">// dispatch task with a node id to identify temp files generated by different nodes</span></span><br><span class="line"></span><br><span class="line">    mapStates []<span class="type">int</span> <span class="comment">// 0:not dispatched, 1:dispatched, 2:done, 3:dispatched_timeout</span></span><br><span class="line">    mapIds    []<span class="type">int</span></span><br><span class="line">    mapDone   <span class="type">bool</span></span><br><span class="line">    mapMutex  sync.Mutex</span><br><span class="line"></span><br><span class="line">    reduceStates []<span class="type">int</span> <span class="comment">// 0:not dispatched, 1:dispatched, 2:done, 3:dispatched_timeout</span></span><br><span class="line">    reduceIds    []<span class="type">int</span></span><br><span class="line">    reduceDone   <span class="type">bool</span></span><br><span class="line">    reduceMutex  sync.Mutex</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>master将每个map任务和每个reduce任务的状态分别保存与<code>mapStates</code>和<code>reduceStates</code>切片中，0表示未分发，1表示已分发但未完成，2表示完成，3表示超时（在下一节会详细介绍超时处理）。在<code>DispatchTask</code>方法中，master首先根据<code>mapDone</code>变量判断map是否完成，然后相应地遍历<code>mapStates</code>或<code>reduceStates</code>切片，找到第一个未分发的任务进行分发。由于两个切片和两个done变量可能同时被多个worker访问，需进行加锁。我用了<code>mapMutex</code>和<code>reduceMutex</code>两把锁。</p>
+<h1 id="超时处理"><a href="#超时处理" class="headerlink" title="超时处理"></a>超时处理</h1><h2 id="超时检测"><a href="#超时检测" class="headerlink" title="超时检测"></a>超时检测</h2><p>当master持续一段时间未收到来自worker的完成信息时，可认为对应的worker故障或者速度太慢，此时需要重新分发任务。可以通过新建一个goroutine进行后台计时。goroutine会在父函数返回的时候退出，因此不能在<code>DispatchTask</code>方法当中对于每个任务单独创建一个用于计时的goroutine，否则，当RPC调用返回的时候，这个goroutine也会随之结束。</p>
+<p>由上，goroutine只能在<code>MakeCoordinator</code>函数中创建。出于简洁性，我实现了如下函数：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> c.Done() &#123;</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//fmt.Printf(&quot;checking timeout\n&quot;)</span></span><br><span class="line">        time.Sleep(<span class="number">10</span> * time.Second)</span><br><span class="line">        c.mapMutex.Lock()</span><br><span class="line">        <span class="keyword">for</span> i, state := <span class="keyword">range</span> c.mapStates &#123;</span><br><span class="line">            <span class="keyword">if</span> state == <span class="number">1</span> &#123;</span><br><span class="line">                c.mapStates[i] = <span class="number">3</span></span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> state == <span class="number">3</span> &#123;</span><br><span class="line">                fmt.Printf(<span class="string">&quot;map timeout %v\n&quot;</span>, i)</span><br><span class="line">                c.mapStates[i] = <span class="number">0</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        c.mapMutex.Unlock()</span><br><span class="line">        c.reduceMutex.Lock()</span><br><span class="line">        <span class="keyword">for</span> i, state := <span class="keyword">range</span> c.reduceStates &#123;</span><br><span class="line">            <span class="keyword">if</span> state == <span class="number">1</span> &#123;</span><br><span class="line">                c.reduceStates[i] = <span class="number">3</span></span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> state == <span class="number">3</span> &#123;</span><br><span class="line">                fmt.Printf(<span class="string">&quot;reduce timeout %v\n&quot;</span>, i)</span><br><span class="line">                c.reduceStates[i] = <span class="number">0</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        c.reduceMutex.Unlock()</span><br><span class="line">    &#125;</span><br><span class="line">&#125;()</span><br></pre></td></tr></table></figure>
+
+<p>该goroutine每隔一段时间检查state的值，当state为1时，将其设为3。当state为3时视为超时。该实现的超时时间不是固定的，而是一个范围，但在实现上较为简洁。</p>
+<h2 id="临时文件处理"><a href="#临时文件处理" class="headerlink" title="临时文件处理"></a>临时文件处理</h2><p>假设超时是由于节点速度过慢，当新节点被指派重复执行该任务的时候，新节点和旧节点产生的临时文件会冲突。因此，我在worker生成的临时文件的文件名当中加上了节点的ID以进行区分，当worker向master报告任务完成之后，master才将对应节点产生的临时文件重命名为所需要的形式。为了避免因某个任务的基础执行时间超过了超时阈值而导致的重复超时，master在接收到任意一个worker报告的完成信息时立即将该任务标记为完成，即使该worker已经超时。</p>
+]]></content>
+      <categories>
+        <category>分布式</category>
+      </categories>
+      <tags>
+        <tag>Go</tag>
+        <tag>MapReduce</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>6.824 lab2a, 2b</title>
     <url>/wiki/6-824-lab2a-2b/</url>
     <content><![CDATA[<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>6.824 lab2a、2b要求实现raft算法的领导选举和日志追加部分。</p>
@@ -297,218 +416,62 @@
       </tags>
   </entry>
   <entry>
-    <title>6.824 lab1</title>
-    <url>/wiki/6-824-lab1/</url>
-    <content><![CDATA[<h1 id="6-824简介"><a href="#6-824简介" class="headerlink" title="6.824简介"></a>6.824简介</h1><p>6.824为MIT的分布式系统课程。同TinyKV类似，6.824的主要内容也为实现Raft共识算法。以笔者做完Lab1的感受，相比TinyKV，6.824仅提供了基本框架，在测试用例当中并未对实现过程中所使用的数据结构进行具体要求，因此编程自由度较高。</p>
-<h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><p><a href="https://pdos.csail.mit.edu/6.824/index.html">6.824 Home Page: Spring 2022</a></p>
-<p><a href="https://www.zhihu.com/column/c_1273718607160393728">MIT6.824分布式系统课程中文翻译 - 知乎 (zhihu.com)</a></p>
-<p><a href="https://www.zhihu.com/question/29597104">如何的才能更好地学习 MIT6.824 分布式系统课程？ - 知乎 (zhihu.com)</a></p>
-<p><a href="https://www.bilibili.com/video/BV1x7411M7Sf/?vd_source=9d62693ecec9580875ee46c2c032eb29">【MIT 6.824 Distributed Systems Spring 2020 分布式系统 中文翻译版合集】_哔哩哔哩_bilibili</a></p>
-<h1 id="实验要求"><a href="#实验要求" class="headerlink" title="实验要求"></a>实验要求</h1><p>实现一个分布式的MapReduce系统，实验文档中文翻译参照：</p>
-<p><a href="https://www.cnblogs.com/greenty1208/p/13161064.html">【翻译】6.824 lab1 （自用不负责） - Greenty - 博客园 (cnblogs.com)</a></p>
-<h1 id="MapReduce"><a href="#MapReduce" class="headerlink" title="MapReduce"></a>MapReduce</h1><p>MapReduce是Google提出的一个软件架构，用于大规模数据集的并行运算。MapReduce包含Map和Reduce两个步骤，可以用函数来表示。</p>
-<ul>
-<li><code>Map</code>函数读取一个文件，根据文件内容输出一个称为<strong>中间件</strong>的键值对列表。每个<code>Map</code>函数分别处理一个输入文件。</li>
+    <title>C++11中的负数取模问题</title>
+    <url>/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<ul>
+<li>今天在做<a href="https://leetcode.cn/problems/convert-to-base-2/description/">1017. 负二进制转换 - 力扣（Leetcode）</a>的时候涉及到了负数取模问题，逼迫我对这个知识点进行了学习。</li>
+<li>题目描述如下：</li>
 </ul>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Map</span><span class="params">(fileName <span class="type">string</span>, content <span class="type">string</span>)</span></span> intermediates []KVPair</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>给你一个整数 <code>n</code> ，以二进制字符串的形式返回该整数的 <strong>负二进制（<code>base -2</code>）</strong>表示。</p>
+<p><strong>注意，</strong>除非字符串就是 <code>&quot;0&quot;</code>，否则返回的字符串中不能含有前导零。</p>
+<p><strong>示例 1：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 2</span><br><span class="line">输出：&quot;110&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 = 2</span><br></pre></td></tr></table></figure>
 
+<p><strong>示例 2：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 3</span><br><span class="line">输出：&quot;111&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 + (-2)^0 = 3</span><br></pre></td></tr></table></figure>
+
+<p><strong>示例 3：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 4</span><br><span class="line">输出：&quot;100&quot;</span><br><span class="line">解释：(-2)^2 = 4</span><br></pre></td></tr></table></figure>
+</blockquote>
 <ul>
-<li>所有<code>Map</code>函数输出的中间件集合在一起，作为完整的中间件。对于中间件中每个不同的key对应的所有键值对，分别执行一个<code>Reduce</code>函数。<code>Reduce</code>函数根据键值对列表的内容输出这个key对应的一个value。</li>
+<li>一种最简单的解法如下：</li>
 </ul>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Reduce</span><span class="params">(key <span class="type">string</span>, values []<span class="type">string</span>)</span></span> <span class="type">string</span></span><br></pre></td></tr></table></figure>
-
-<p>整个MapReduce流程的输入为文件列表，输出为键值对列表。</p>
-<h1 id="系统实现"><a href="#系统实现" class="headerlink" title="系统实现"></a>系统实现</h1><p>MapReduce的分布式执行系统包含一个master（coordinator）和若干个worker。master负责任务分发、协调任务的运行，worker负责执行具体的map和reduce函数。master启动后，执行注册RPC的操作，使得其方法对worker可见。worker通过本地网络对master的方法进行远程调用。</p>
-<p><strong>注意：使用RPC包时，外部方法名称和被传输结构体当中的成员名称的首字母均需要大写，否则会出现数据无法正常传输的错误。</strong></p>
-<h2 id="worker"><a href="#worker" class="headerlink" title="worker"></a>worker</h2><p>由于master无法知道worker的存在，也无法知道worker是否故障，因此worker的主循环中需要反复向master请求分发任务，在任务完成之后需要向master发送完成信息，分别对应master的<code>DispatchTask</code>和<code>HandleTaskDone</code>两个方法。worker主循环如下，master返回<code>TASK_WAIT</code>时代表map任务未全部完成，worker等待一段时间之后再次向master请求可能的reduce任务或者超时的map任务。</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span> &#123;</span><br><span class="line">    reply := SendRequest()</span><br><span class="line">    <span class="keyword">if</span> reply == <span class="literal">nil</span> || reply.TaskType == TASK_NONE &#123;</span><br><span class="line">        <span class="keyword">break</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> reply.TaskType == TASK_MAP &#123;</span><br><span class="line">        doMap(reply, mapf)</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> reply.TaskType == TASK_REDUCE &#123;</span><br><span class="line">        doReduce(reply, reducef)</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// TASK_WAIT</span></span><br><span class="line">        time.Sleep(<span class="number">100</span> * time.Millisecond)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h1 id="master"><a href="#master" class="headerlink" title="master"></a>master</h1><p>master结构体定义如下：</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> Coordinator <span class="keyword">struct</span> &#123;</span><br><span class="line">    <span class="comment">// Your definitions here.</span></span><br><span class="line">    files   []<span class="type">string</span></span><br><span class="line">    nReduce <span class="type">int</span></span><br><span class="line">    nodeId  <span class="type">int</span> <span class="comment">// dispatch task with a node id to identify temp files generated by different nodes</span></span><br><span class="line"></span><br><span class="line">    mapStates []<span class="type">int</span> <span class="comment">// 0:not dispatched, 1:dispatched, 2:done, 3:dispatched_timeout</span></span><br><span class="line">    mapIds    []<span class="type">int</span></span><br><span class="line">    mapDone   <span class="type">bool</span></span><br><span class="line">    mapMutex  sync.Mutex</span><br><span class="line"></span><br><span class="line">    reduceStates []<span class="type">int</span> <span class="comment">// 0:not dispatched, 1:dispatched, 2:done, 3:dispatched_timeout</span></span><br><span class="line">    reduceIds    []<span class="type">int</span></span><br><span class="line">    reduceDone   <span class="type">bool</span></span><br><span class="line">    reduceMutex  sync.Mutex</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>master将每个map任务和每个reduce任务的状态分别保存与<code>mapStates</code>和<code>reduceStates</code>切片中，0表示未分发，1表示已分发但未完成，2表示完成，3表示超时（在下一节会详细介绍超时处理）。在<code>DispatchTask</code>方法中，master首先根据<code>mapDone</code>变量判断map是否完成，然后相应地遍历<code>mapStates</code>或<code>reduceStates</code>切片，找到第一个未分发的任务进行分发。由于两个切片和两个done变量可能同时被多个worker访问，需进行加锁。我用了<code>mapMutex</code>和<code>reduceMutex</code>两把锁。</p>
-<h1 id="超时处理"><a href="#超时处理" class="headerlink" title="超时处理"></a>超时处理</h1><h2 id="超时检测"><a href="#超时检测" class="headerlink" title="超时检测"></a>超时检测</h2><p>当master持续一段时间未收到来自worker的完成信息时，可认为对应的worker故障或者速度太慢，此时需要重新分发任务。可以通过新建一个goroutine进行后台计时。goroutine会在父函数返回的时候退出，因此不能在<code>DispatchTask</code>方法当中对于每个任务单独创建一个用于计时的goroutine，否则，当RPC调用返回的时候，这个goroutine也会随之结束。</p>
-<p>由上，goroutine只能在<code>MakeCoordinator</code>函数中创建。出于简洁性，我实现了如下函数：</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> c.Done() &#123;</span><br><span class="line">            <span class="keyword">break</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//fmt.Printf(&quot;checking timeout\n&quot;)</span></span><br><span class="line">        time.Sleep(<span class="number">10</span> * time.Second)</span><br><span class="line">        c.mapMutex.Lock()</span><br><span class="line">        <span class="keyword">for</span> i, state := <span class="keyword">range</span> c.mapStates &#123;</span><br><span class="line">            <span class="keyword">if</span> state == <span class="number">1</span> &#123;</span><br><span class="line">                c.mapStates[i] = <span class="number">3</span></span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> state == <span class="number">3</span> &#123;</span><br><span class="line">                fmt.Printf(<span class="string">&quot;map timeout %v\n&quot;</span>, i)</span><br><span class="line">                c.mapStates[i] = <span class="number">0</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        c.mapMutex.Unlock()</span><br><span class="line">        c.reduceMutex.Lock()</span><br><span class="line">        <span class="keyword">for</span> i, state := <span class="keyword">range</span> c.reduceStates &#123;</span><br><span class="line">            <span class="keyword">if</span> state == <span class="number">1</span> &#123;</span><br><span class="line">                c.reduceStates[i] = <span class="number">3</span></span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> state == <span class="number">3</span> &#123;</span><br><span class="line">                fmt.Printf(<span class="string">&quot;reduce timeout %v\n&quot;</span>, i)</span><br><span class="line">                c.reduceStates[i] = <span class="number">0</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        c.reduceMutex.Unlock()</span><br><span class="line">    &#125;</span><br><span class="line">&#125;()</span><br></pre></td></tr></table></figure>
-
-<p>该goroutine每隔一段时间检查state的值，当state为1时，将其设为3。当state为3时视为超时。该实现的超时时间不是固定的，而是一个范围，但在实现上较为简洁。</p>
-<h2 id="临时文件处理"><a href="#临时文件处理" class="headerlink" title="临时文件处理"></a>临时文件处理</h2><p>假设超时是由于节点速度过慢，当新节点被指派重复执行该任务的时候，新节点和旧节点产生的临时文件会冲突。因此，我在worker生成的临时文件的文件名当中加上了节点的ID以进行区分，当worker向master报告任务完成之后，master才将对应节点产生的临时文件重命名为所需要的形式。为了避免因某个任务的基础执行时间超过了超时阈值而导致的重复超时，master在接收到任意一个worker报告的完成信息时立即将该任务标记为完成，即使该worker已经超时。</p>
-]]></content>
-      <categories>
-        <category>分布式</category>
-      </categories>
-      <tags>
-        <tag>Go</tag>
-        <tag>MapReduce</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>6.824 lab2c, 2d</title>
-    <url>/wiki/6-824-lab2c-2d/</url>
-    <content><![CDATA[<h1 id="Lab-2C"><a href="#Lab-2C" class="headerlink" title="Lab 2C"></a>Lab 2C</h1><p>实验2C要求实现Raft服务器currentTerm、votedFor和log三个状态的持久化，难度不高，只需要填充相应函数，并在<strong>每次回复RPC之前</strong>和<strong>这三个状态被修改之后</strong>调用持久化函数。</p>
-<p>但实验2C的测试还是有可能因为2A、2B的实现不完善而发生错误。</p>
-<p>我在测试时多次碰到该错误：</p>
 <blockquote>
-<p>— FAIL: TestFigure8Unreliable2C (41.85s)<br>config.go:609: one(5768) failed to reach agreement</p>
+<p>与转化为二进制没什么区别，都是除基取余，倒序排列。<br>不过负二进制的余数可能有0，1，-1，而表示上不能有负数，所以在余数为-1时，要转化为1，同时商+1即可</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">string <span class="title">baseNeg2</span><span class="params">(<span class="type">int</span> n)</span> </span>&#123;</span><br><span class="line">        string ans;</span><br><span class="line">        <span class="keyword">while</span>(n)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="type">int</span> remain=n%(<span class="number">-2</span>);</span><br><span class="line">            ans+=<span class="string">&#x27;0&#x27;</span>+<span class="built_in">abs</span>(remain);</span><br><span class="line">            n=remain&lt;<span class="number">0</span>?n/(<span class="number">-2</span>)+<span class="number">1</span>:n/(<span class="number">-2</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">reverse</span>(ans.<span class="built_in">begin</span>(),ans.<span class="built_in">end</span>());</span><br><span class="line">        <span class="keyword">return</span> ans.<span class="built_in">empty</span>()?<span class="string">&quot;0&quot;</span>:ans;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 </blockquote>
-<p>经过调试和查阅资料，发现了之前实验的两个错误实现：</p>
 <ul>
-<li>在AppendEntries RPC当中直接将prevLogIndex之后的所有条目截断。当领导者向参与者发送的AppendEntries请求过期，其中包含的日志条目是参与者日志条目的子集的时候，这种实现会导致参与者的一部分正确日志被舍弃。正确的实现方法是严格按照论文，只截断冲突的日志。</li>
-<li>原实现中，领导者收到AppendEntries的成功响应之后会执行<code>nextIndex += len(args.Entries)</code>。然而领导者在发送RPC之前已经释放了互斥锁，其nextIndex有可能被修改。正确实现应该是<code>nextIndex = prevLogIndex + len(args.Entries) + 1</code>。</li>
+<li>这里涉及到<code>n%(-2)</code>和<code>n/(-2)</code>的运算结果。C++ Primer第五版中是这么说的：</li>
 </ul>
-<p>此外，还进行了下列优化，顺利一次性通过了2A、2B、2C：</p>
+<blockquote>
+<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406133817963.png" alt="image-20230406133817963"></p>
+</blockquote>
 <ul>
-<li><p>TIME_STEP设为10ms，原实现与心跳超时相同。</p>
-</li>
-<li><p>选举超时设为[300, 450]ms，心跳超时设置为50ms。</p>
-</li>
-</ul>
-<h1 id="Lab-2D"><a href="#Lab-2D" class="headerlink" title="Lab 2D"></a>Lab 2D</h1><p>实验2D要求实现快照功能。</p>
-<p>实验官网的Hint给出了实现思路，按照思路，第一步是实现日志下标不从0开始存储。在我之前的实验中，日志下标以条目中的<code>CommandIndex</code>字段为准，故不需要做太多的修改。我原本的思路是在Raft状态中新增<code>lastIncludedIndex</code>和<code>lastIncludedTerm</code>两个字段，后来发现直接使用<code>rf.log[0].CommandIndex</code>和<code>rf.log[0].CommandTerm</code>来存储可以避免许多判断。</p>
-<p>然而当我实现了第一步之后再去跑2C的测试时，发现总是会发生apply不一致或者不能reach agreement的错误，经过一番调试之后最终发现是<code>AppendEntries()</code>当中一个if的判断条件写错了，把<code>args.Entries</code>的长度写成了<code>rf.log</code>的长度。。。。。。。。。修改此bug后，顺利通过10次2C测试。</p>
-<p>在跑2D的测试时发现另外的问题：当需要snapshot的时候，applyCh会阻塞，导致整个applyLogs线程阻塞。而由于applyLogs线程持有了互斥锁，因此整个服务器都会阻塞。解决方法是使用select语句：</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">select</span> &#123;</span><br><span class="line"><span class="keyword">case</span> rf.applyCh &lt;- log:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log success, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line"><span class="keyword">default</span>:</span><br><span class="line">    DPrintf(<span class="string">&quot;%v: applying log fail due to block, lastApplied==%v\n&quot;</span>, rf.me, rf.lastApplied)</span><br><span class="line">    rf.lastApplied--</span><br><span class="line">    <span class="keyword">goto</span> applyLogsLoopExit</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>当case中的写通道指令被阻塞时，select会转而执行default分支。需要注意不能在default分支中写break来退出外层循环，break的作用范围仅限于select，应该使用goto。</p>
-<hr>
-<p>实现日志的部分存储之后就可以着手开始实现Snapshot函数和InstallSnapshot RPC。实现前，要先理解Snapshot的指令和数据流向：上层应用在不需要前一部分的日志时，会调用Raft的<code>Snapshot</code>方法，其<code>snapshot</code>参数是上层应用已经创建好的快照。<code>Snapshot</code>方法需要做的是：截断日志，然后将快照<code>snapshot</code>持久化到持久性存储当中。当领导者发现某个参与者的<code>nextIndex</code>小于等于当前的<code>lastIncludedIndex</code>时，需要发送InstallSnapshot RPC，此时通过<code>Persister.ReadSnapshot</code>方法可从持久化存储中读取快照进行发送。</p>
-<p>由config.go第247行还可以知道：<code>snapshot</code>字节数组使用labgob包编解码，首先包含<code>lastIncludedIndex</code>数值，然后顺序包含<code>lastIncludedIndex</code>及之前的所有日志条目。</p>
-<hr>
-<p>Snapshot的函数调用关系比较难理解，需要参考<a href="https://pdos.csail.mit.edu/6.824/notes/raft_diagram.pdf">Raft Diagram</a>。</p>
-<img src="raft_diagram_1.png">
-
-<ul>
-<li><p>Service为使用Raft Code作为其一致性协议的上层应用，可以是K&#x2F;V数据库等。</p>
-</li>
-<li><p>为了避免在Raft Code的内存中保留过长的日志条目，Service会定期将已经apply的一部分日志转换为snapshot。<strong>Snapshot的创建仅由Service执行。</strong>当Snapshot被创建之后，Service会调用<code>Snapshot()</code>方法通知Raft Code对其内存中的日志条目进行截断，方法的参数为已经创建的snapshot字节切片，以及<code>lastIncludedIndex</code>。</p>
-</li>
-<li><p>Raft Code接收到Service的<code>Snapshot()</code>请求之后，对其日志中下标为<code>lastIncludedIndex</code>及之前的条目截断，<strong>并将snapshot保存到内存当中，用于可能的InstallSnapshot RPC</strong>。当Raft Code接收到snapshot后，需要立即将其持久化。</p>
-</li>
-<li><p>Raft Code崩溃重启时，Service会调用<code>ReadSnapshot()</code>方法读取已经保存的snapshot，<strong>并进行apply，Raft Code无需再apply这部分状态</strong>。<strong>然而，为了用于可能的InstallSnapshot RPC，Raft Code也需要立即调用<code>ReadSnapshot()</code>方法将snapshot保存到内存中，注意这个调用关系在Raft Diagram当中没有体现</strong>。</p>
-</li>
-<li><p>如果领导者的<code>nextIndex[i]</code>小于等于<code>lastIncludedIndex</code>，说明此时节点i由于某种原因严重落后，需要领导者的snapshot中的日志条目。领导者发送<code>InstallSnapshot RPC</code>给节点i。</p>
-</li>
-<li><p>节点i收到<code>InstallSnapshot RPC</code>请求后，<strong>将snapshot通过applyCh应用到Service的状态机上</strong>。然后，Service会调用<code>CondInstallSnapshot()</code>告知Raft Code其已经将刚刚传入的snapshot应用，该方法为旧版6.824实验中的冗余要求，直接返回<code>true</code>即可。</p>
-</li>
-</ul>
-<hr>
-<p>在熟悉以上架构的基础上就可以很容易地写出代码。同样的，创建一个后台goroutine，重复检查领导者的<code>nextIndex</code>数组，当发现<code>nextIndex[i]&lt;=lastIncludedIndex</code>的时候开始发送<code>InstallSnapshot RPC</code>。</p>
-<p>可能会出错的地方有：</p>
-<ul>
-<li><p>每次调用<code>rf.persister.SaveStateAndSnapshot()</code>方法的时候都必须传入当前内存中的snapshot，不能在不需要更新snapshot的时候传入nil，否则会覆盖持久化存储当中的snapshot。</p>
-</li>
-<li><p>当使用<code>labgob</code>包对snapshot进行解码之后，由于snapshot当中可能包含当前解码位置的指针，snapshot的二进制内容会发生变化。<code>InstallSnapshot RPC</code>接收者实现的第5个步骤需要用到snapshot的<code>lastIncludedIndex</code>，此时不能通过解码snapshot的方式读取该值，而必须使用<code>args.LastIncludedIndex</code>，否则会出错。</p>
-</li>
-<li><p>在<code>InstallSnapshot RPC</code>中，persist的时机很重要。必须保证在snapshot和rf.log[0]（即lastIncluded信息）同时更改之后才能persist，不能只更新了某个值就persist。</p>
-</li>
-<li><p>在领导者发送snapshot的不同chunk的过程中，必须保证参数中的<code>Term</code>、<code>LastIncludeIndex</code>和<code>LastIncludedTerm</code>保持不变，即使领导者的状态已经发生了改变。即要把这几个变量提出循环外。在发送snapshot的多个chunk的过程中，领导者的snapshot可能会发生追加，我目前采用的策略是继续发送原有的snapshot。猜测更好的策略应当是丢弃原有的snapshot，重新发送新的snapshot，以节省网络带宽。这一点留待后续优化。</p>
-</li>
-</ul>
-<hr>
-<h1 id="感想"><a href="#感想" class="headerlink" title="感想"></a>感想</h1><p>6.824的lab2到这里就告一段落了，总算是完整地实现了Raft算法，还蛮有成就感的。在完成这四个小实验的过程中，我也能明显地感觉到自己在代码调试能力和写作能力这两个方面的提升。代码调试上，面对密密麻麻，动辄几个GB的调试信息，我不再有畏难心理了。我学会了在代码恰当的地方输出结构化的调试信息，在调试信息中寻找关键点，进行调试。可以说，我离”松弛感“又更进一步了。在写作能力上，从lab2a到lab2d，我也在逐渐摆脱”报告文学“。总而言之，6.824陪伴我度过了一段快乐的时光。</p>
-]]></content>
-      <categories>
-        <category>分布式</category>
-      </categories>
-      <tags>
-        <tag>Raft</tag>
-        <tag>Go</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>6.824 lab3a</title>
-    <url>/wiki/6-824-lab3a/</url>
-    <content><![CDATA[<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><p><a href="https://zhuanlan.zhihu.com/p/267685488">MIT 6.824 Lab3 翻译（Key&#x2F;Value Server Base on Raft） - 知乎 (zhihu.com)</a></p>
-<h1 id="实现踩坑过程"><a href="#实现踩坑过程" class="headerlink" title="实现踩坑过程"></a>实现踩坑过程</h1><p>首先按照自己的思路进行了基本实现，踩了许多坑。</p>
-<p>错误1：</p>
-<blockquote>
-<p>Test: one client (3A)</p>
-<p>2022&#x2F;12&#x2F;06 17:12:56 2 server: Get RPC opf.opIndex&#x3D;&#x3D;3 but args.OpIndex&#x3D;&#x3D;5</p>
-</blockquote>
-<p>原因：对于opIndex &#x3D;&#x3D; maxOpIndex的情况，这条指令也已经在raft层中Start一次commit了，也需要读取applyCh，而我忘记了。</p>
-<p>错误2：</p>
-<blockquote>
-<p>Test: progress in majority (3A)</p>
-<p>2022&#x2F;12&#x2F;06 18:22:20 2 server: Get RPC opf.opIndex&#x3D;&#x3D;1 but args.OpIndex&#x3D;&#x3D;2, opf&#x3D;&#x3D;{1 Put 1 14}</p>
-</blockquote>
-<p>发现我忘了一件事情：就算不是leader，也要apply来自raft的日志（已实现，用一个goroutine来定期apply）</p>
-<p>错误3：</p>
-<blockquote>
-<p>— FAIL: TestUnreliable3A (5.24s)<br> test_test.go:293: get wrong value, key 3, wanted:<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 7 y<br> , got<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 6 yx 3 7 y<br> test_test.go:293: get wrong value, key 1, wanted:<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 9 yx 1 10 y<br> , got<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 8 yx 1 9 yx 1 9 yx 1 10 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 1 8 y in Append result</p>
-</blockquote>
-<p>当网络不稳定时，有一些指令被重复执行了。发现在server的RPC处理当中，我应该把判断OpIndex的逻辑写到Start前面，不然由于applyCh是单独的goroutine读取，在Start之后还是会重复执行提交但未回复的指令。</p>
-<p>错误4：</p>
-<blockquote>
-<p>Test: completion after heal (3A) …</p>
-<p>— FAIL: TestOnePartition3A (6.21s)</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">test_test.go:539: Put did not complete</span><br></pre></td></tr></table></figure>
-</blockquote>
-<p>发现没有实现超时机制。设计了一个map，保存每个client对应的已applied的opf，由RPC handler尝试读取，直至超时。实现超时后仍通不过，调试发现kv.maxOpIndexs应该写在applyLogs()协程里面。修改后通过该测试样例及之前的所有样例。</p>
-<p>错误5：</p>
-<blockquote>
-<p>— FAIL: TestManyPartitionsOneClient3A (14.86s)<br> test_test.go:293: get wrong value, key 0, wanted:<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 y<br> , got<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 yx 0 25 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 0 25 y in Append result</p>
-</blockquote>
-<p>在Partition测试中又出现重复写入。在applyLogs中去重后又发现：client让某个partition A apply了一个操作，当这个partition A和另一个partition B合并时，领导者变成了partition B的成员，但partition A的maxOpIndex更新，导致partition A无法执行新命令。</p>
-<p>发现applyLogs的sleep应该删掉，否则apply太慢了。但是错误仍未解决。</p>
-<p>继续跟踪Raft发现，旧leader向大多数节点append一个指令对应的日志成功后，在本地状态机进行了commit，并进行了apply，使得K&#x2F;V层的指令执行成功。但commit之后还来不及通过心跳或appendEntries让其他节点接收到leaderCommit，就变更领导者了，由于新领导者认为这个命令还未apply，所以无法执行后续指令。这应该就是实验指南和论文中提到的领导者变更问题。为了确保我的Raft实现没问题，用网上的lab3代码跑了一下3A，确定能够通过测试，从而将问题焦点落在server的实现上。</p>
-<p>将代码进行了进一步检查和修改，又倒腾了一下午debug，终于通过所有算例。完整实现思路以下一章为准。</p>
-<h1 id="完整设计思路"><a href="#完整设计思路" class="headerlink" title="完整设计思路"></a>完整设计思路</h1><h2 id="Client"><a href="#Client" class="headerlink" title="Client"></a>Client</h2><p>Client向任意服务器发送请求，请求失败则换服务器重试，直到请求成功为止。每个Client以创建时的时间戳作为其ID，请求序号从1递增。</p>
-<h2 id="Server"><a href="#Server" class="headerlink" title="Server"></a>Server</h2><p>server数据结构：</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> KVServer <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu      sync.Mutex</span><br><span class="line">    me      <span class="type">int</span></span><br><span class="line">    rf      *raft.Raft</span><br><span class="line">    applyCh <span class="keyword">chan</span> raft.ApplyMsg</span><br><span class="line">    dead    <span class="type">int32</span> <span class="comment">// set by Kill()</span></span><br><span class="line"></span><br><span class="line">    maxraftstate <span class="type">int</span> <span class="comment">// snapshot if log grows this big</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Your definitions here.</span></span><br><span class="line">    table <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span> <span class="comment">// the database</span></span><br><span class="line">    <span class="comment">// appliedLogs   string // for test</span></span><br><span class="line">    maxOpIndexs   <span class="keyword">map</span>[<span class="type">int</span>]<span class="type">int</span> <span class="comment">// the latest operation that server has applied for each client</span></span><br><span class="line">    clientApplied <span class="keyword">map</span>[<span class="type">int</span>]<span class="keyword">chan</span> OpFields</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>table为存储K&#x2F;V对的哈希表，maxOpIndexs保存每个客户端已经applied的最大请求编号，clientApplied用于在server成功apply一个请求的时候通知Get&#x2F;PutAppend handler。</p>
-<p>用于apply从Raft端提交的日志的go routine如下：</p>
-<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(kv *KVServer)</span></span> applyLogs() &#123;</span><br><span class="line">    <span class="keyword">for</span> kv.killed() == <span class="literal">false</span> &#123;</span><br><span class="line">        applyMsg := &lt;-kv.applyCh</span><br><span class="line"></span><br><span class="line">        op, ok := applyMsg.Command.(Op)</span><br><span class="line">        <span class="keyword">if</span> !ok &#123;</span><br><span class="line">            log.Fatal(errors.New(<span class="string">&quot;applyMsg type error&quot;</span>))</span><br><span class="line">        &#125;</span><br><span class="line">        opf := op.DecodeOp()</span><br><span class="line"></span><br><span class="line">        DPrintf(<span class="string">&quot;%v server: applyCh receive logIdx: %v, OpIndex: %v, Key: %v, value: %v, ClientId: %v\n&quot;</span>, kv.me, applyMsg.CommandIndex, opf.opIndex, opf.key, opf.value, opf.ckId)</span><br><span class="line">        kv.mu.Lock()</span><br><span class="line">        <span class="keyword">if</span> opf.opIndex &gt; kv.maxOpIndexs[opf.ckId] &#123;</span><br><span class="line">            kv.OperatePutAppend(opf)</span><br><span class="line">            kv.maxOpIndexs[opf.ckId] = opf.opIndex</span><br><span class="line">        &#125;</span><br><span class="line">        kv.mu.Unlock()</span><br><span class="line"></span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> kv.clientApplied[opf.ckId] &lt;- opf:</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<p>当Raft提交上来的日志编号大于当前应用的最大编号时，server才将其执行，以避免重复。然后，server借助kv.clientApplied中的channel告知Get&#x2F;PutAppend Handler请求已被提交。</p>
-<p>这里的一个问题是为什么满足<code>opf.opIndex &gt; kv.maxOpIndexs[opf.ckId]</code>的请求就可以执行，而不需要<code>opf.opIndex == kv.maxOpIndexs[opf.ckId]+1</code>。这是我之前调试时一直犯的错误。我举个例子，假设当前对于某个客户端，MaxOpIndex为1，而opf.opIndex为3，那么此时有可能2还没有执行完，正在处于重试阶段，而用户就又输入了第三条指令。因此上述语句只需要保证不重复执行就行，而无需按照OpIndex顺序执行。</p>
-<p>Get&#x2F;PutAppend Handler执行过程如下：</p>
+<li><p>C++ Primer中的这两段话可以归纳为如下两点：</p>
 <ol>
-<li><p>调用Start</p>
+<li><p>在C++11中，除法运算<code>m/n</code>的商一律向零取整。此时，<code>m/n</code>、<code>m/(-n)</code>、<code>(-m)/n</code>、<code>(-m)/(-n)</code>这四个表达式的运算结果的绝对值均相等，运算结果的符号取决与被除数与除数是否同号，同号得正，异号得负。例如：21&#x2F;5&#x3D;4，21&#x2F;(-5)&#x3D;-4，-21&#x2F;5&#x3D;-4，-21&#x2F;(-5)&#x3D;4。换言之，<strong>商的绝对值乘以除数的绝对值一定不超过但最接近被除数的绝对值</strong>。</p>
 </li>
-<li><p>通过Start的返回值判断是否为leader，若不为leader直接返回</p>
-</li>
-<li><p>判断是否<code>args.OpIndex == kv.maxOpIndexs[args.ClientId]</code>，若满足，则是论文中所提到的这条指令已经应用但未回复客户端的情况。此时直接回复即可。</p>
-</li>
-<li><p>在clientApplied中创建一个channel用于唤醒</p>
-</li>
-<li><p>使用select语句从channel中读取。若在规定时间内读取成功，需满足<code>opf.opIndex &gt;= args.OpIndex</code>才能回复成功；若读取超时，则回复Wrong Leader。</p>
-</li>
-<li><p>删除这个channel</p>
+<li><p>根据1可以推出，取模运算<code>m%n</code>的结果永远与<code>m</code>同号</p>
 </li>
 </ol>
-<h2 id="关于加锁"><a href="#关于加锁" class="headerlink" title="关于加锁"></a>关于加锁</h2><p>Client中的锁只作用与序列号，而没有作用于整个过程。这代表一个指令执行过程中，还可以交叉执行其他指令。指令最终在K&#x2F;V数据库中作用的顺序以指令开始被请求的顺序，即加锁确定序列号的前后顺序为准。</p>
-<p>Server同理。</p>
-]]></content>
-      <categories>
-        <category>分布式</category>
-      </categories>
-      <tags>
-        <tag>Raft</tag>
-        <tag>Go</tag>
-        <tag>KV数据库</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>6.824 lab3b</title>
-    <url>/wiki/6-824-lab3b/</url>
-    <content><![CDATA[<h1 id="设计思路"><a href="#设计思路" class="headerlink" title="设计思路"></a>设计思路</h1><h4 id="实验3b需要解决的问题："><a href="#实验3b需要解决的问题：" class="headerlink" title="实验3b需要解决的问题："></a>实验3b需要解决的问题：</h4><h5 id="如何判断snapshot的时机？"><a href="#如何判断snapshot的时机？" class="headerlink" title="如何判断snapshot的时机？"></a>如何判断snapshot的时机？</h5><p><code>persister.RaftStateSize()</code>返回已经持久化的raft日志（连同若干个需要持久化的变量）的大小。server持续调用该函数，当返回值等于<code>maxraftstate</code>的时候进行snapshot。需要处理<code>maxraftstate==-1</code>的情况。snapshot时还需要传入snapshot对应的最后一条raft日志的下标，需要多维护一个变量。</p>
-<h5 id="snapshot包含什么？"><a href="#snapshot包含什么？" class="headerlink" title="snapshot包含什么？"></a>snapshot包含什么？</h5><p>snapshot包含KV数据库的底层map和一些用于维护一致性的变量。当服务器重启时，<code>Persister</code>中保存的snapshot直接复制到server层即可。</p>
-<h5 id="maxraftstate是否需要持久化到Persister当中？"><a href="#maxraftstate是否需要持久化到Persister当中？" class="headerlink" title="maxraftstate是否需要持久化到Persister当中？"></a><code>maxraftstate</code>是否需要持久化到<code>Persister</code>当中？</h5><p>不需要，因为<code>maxraftstate</code>是<code>StartKVServer()</code>的参数，在启动server时被传入。</p>
-<h5 id="当server从applyCh中读到snapshot时应该执行什么操作？"><a href="#当server从applyCh中读到snapshot时应该执行什么操作？" class="headerlink" title="当server从applyCh中读到snapshot时应该执行什么操作？"></a>当server从<code>applyCh</code>中读到snapshot时应该执行什么操作？</h5><p>直接覆盖原有database即可。</p>
-<h5 id="如何保证指令的去重？"><a href="#如何保证指令的去重？" class="headerlink" title="如何保证指令的去重？"></a>如何保证指令的去重？</h5><p>将<code>maxOpIndexs</code>保存到snapshot当中，进行持久化。</p>
-<h4 id="实验3b的一些注意事项："><a href="#实验3b的一些注意事项：" class="headerlink" title="实验3b的一些注意事项："></a>实验3b的一些注意事项：</h4><ul>
-<li>snapshot中保存的字段首字母大写</li>
+</li>
+<li><p>回到LeetCode 1017这道题。当我们使用”除-2取余法“时，可能得到的余数为0、1、-1。由于最终结果为“-2的非负整数次幂相加”的形式，当余数为0或1时，可以直接作为结果中的一位；当余数为-1时，必须将其转换为非负数，方法为：让被除数多除一个-2，商加1，由于多除了一个-2，余数就需要减去一个-2，即余数-1加上2变为1。</p>
+</li>
+<li><p>本质上，解决这道题需要使用“正数除以负数，商向0取整；负数除以负数，商向无穷取整”的除法规则进行除-2取余，这样得到的所有余数都是正的，能够组合成“-2的非负整数次幂相加”的形式。然而由于C++11标准的除法一律向0取整，我们需要在每次得到负余数的时候多进行一次调整，以符合题目要求的除法规则。</p>
+</li>
+<li><p>为加深理解，再附上C++17中不同整数除以-2的运行结果：</p>
+</li>
 </ul>
-<h1 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h1><p>lab1-lab3完整实现代码：<a href="https://github.com/Starman-SWA/6.824">Starman-SWA&#x2F;6.824 (github.com)</a></p>
+<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406140637592.png" alt="image-20230406140637592"></p>
 ]]></content>
       <categories>
-        <category>分布式</category>
+        <category>C++</category>
       </categories>
       <tags>
-        <tag>Raft</tag>
-        <tag>Go</tag>
-        <tag>KV数据库</tag>
+        <tag>C++11</tag>
+        <tag>进制转换</tag>
+        <tag>负数取模</tag>
       </tags>
   </entry>
   <entry>
@@ -835,6 +798,28 @@
       </tags>
   </entry>
   <entry>
+    <title>6.824 lab3b</title>
+    <url>/wiki/6-824-lab3b/</url>
+    <content><![CDATA[<h1 id="设计思路"><a href="#设计思路" class="headerlink" title="设计思路"></a>设计思路</h1><h4 id="实验3b需要解决的问题："><a href="#实验3b需要解决的问题：" class="headerlink" title="实验3b需要解决的问题："></a>实验3b需要解决的问题：</h4><h5 id="如何判断snapshot的时机？"><a href="#如何判断snapshot的时机？" class="headerlink" title="如何判断snapshot的时机？"></a>如何判断snapshot的时机？</h5><p><code>persister.RaftStateSize()</code>返回已经持久化的raft日志（连同若干个需要持久化的变量）的大小。server持续调用该函数，当返回值等于<code>maxraftstate</code>的时候进行snapshot。需要处理<code>maxraftstate==-1</code>的情况。snapshot时还需要传入snapshot对应的最后一条raft日志的下标，需要多维护一个变量。</p>
+<h5 id="snapshot包含什么？"><a href="#snapshot包含什么？" class="headerlink" title="snapshot包含什么？"></a>snapshot包含什么？</h5><p>snapshot包含KV数据库的底层map和一些用于维护一致性的变量。当服务器重启时，<code>Persister</code>中保存的snapshot直接复制到server层即可。</p>
+<h5 id="maxraftstate是否需要持久化到Persister当中？"><a href="#maxraftstate是否需要持久化到Persister当中？" class="headerlink" title="maxraftstate是否需要持久化到Persister当中？"></a><code>maxraftstate</code>是否需要持久化到<code>Persister</code>当中？</h5><p>不需要，因为<code>maxraftstate</code>是<code>StartKVServer()</code>的参数，在启动server时被传入。</p>
+<h5 id="当server从applyCh中读到snapshot时应该执行什么操作？"><a href="#当server从applyCh中读到snapshot时应该执行什么操作？" class="headerlink" title="当server从applyCh中读到snapshot时应该执行什么操作？"></a>当server从<code>applyCh</code>中读到snapshot时应该执行什么操作？</h5><p>直接覆盖原有database即可。</p>
+<h5 id="如何保证指令的去重？"><a href="#如何保证指令的去重？" class="headerlink" title="如何保证指令的去重？"></a>如何保证指令的去重？</h5><p>将<code>maxOpIndexs</code>保存到snapshot当中，进行持久化。</p>
+<h4 id="实验3b的一些注意事项："><a href="#实验3b的一些注意事项：" class="headerlink" title="实验3b的一些注意事项："></a>实验3b的一些注意事项：</h4><ul>
+<li>snapshot中保存的字段首字母大写</li>
+</ul>
+<h1 id="代码实现"><a href="#代码实现" class="headerlink" title="代码实现"></a>代码实现</h1><p>lab1-lab3完整实现代码：<a href="https://github.com/Starman-SWA/6.824">Starman-SWA&#x2F;6.824 (github.com)</a></p>
+]]></content>
+      <categories>
+        <category>分布式</category>
+      </categories>
+      <tags>
+        <tag>Raft</tag>
+        <tag>Go</tag>
+        <tag>KV数据库</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>In Search of an Understandable Consensus Algorithm - Raft</title>
     <url>/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/</url>
     <content><![CDATA[<h1 id="摘要"><a href="#摘要" class="headerlink" title="摘要"></a>摘要</h1><p>Raft是一个用于管理replicated log的共识算法（consensus algorithm）。Raft与Paxos一样高效。相比Paxos，Raft更加易懂，且为应用到实际系统当中提供了更好的基础。为了提高可理解性，Raft将共识算法的几个关键元素分开，例如leader election、log replication和safety，并且它通过执行更强的一致性减少了需要考虑的状态数目。</p>
@@ -927,6 +912,18 @@
       </tags>
   </entry>
   <entry>
+    <title>Prim算法 vs Dijkstra算法</title>
+    <url>/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/</url>
+    <content><![CDATA[<p>Prim算法用于求最小生成树，Dijkstra算法用于求单源最短路径。两者的用途不同，但算法实现非常类似，都采用了贪心算法，都是将顶点从一个集合加到另一个集合当中。但不同的是两者的选点标准：假设已加入的点集为U，未加入的点集为V。Prim算法在V中选取与U中任意顶点<strong>直接距离最短</strong>的那个顶点加入U，Dijkstra算法选取V中<strong>与初始顶点距离最短</strong>的那个顶点加入U。</p>
+]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>图论</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Paxos算法笔记</title>
     <url>/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/</url>
     <content><![CDATA[<h1 id="Basic-Paxos"><a href="#Basic-Paxos" class="headerlink" title="Basic Paxos"></a>Basic Paxos</h1><p>Basic Paxos工作流程如下：</p>
@@ -947,18 +944,6 @@
       </categories>
       <tags>
         <tag>Paxos</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Prim算法 vs Dijkstra算法</title>
-    <url>/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/</url>
-    <content><![CDATA[<p>Prim算法用于求最小生成树，Dijkstra算法用于求单源最短路径。两者的用途不同，但算法实现非常类似，都采用了贪心算法，都是将顶点从一个集合加到另一个集合当中。但不同的是两者的选点标准：假设已加入的点集为U，未加入的点集为V。Prim算法在V中选取与U中任意顶点<strong>直接距离最短</strong>的那个顶点加入U，Dijkstra算法选取V中<strong>与初始顶点距离最短</strong>的那个顶点加入U。</p>
-]]></content>
-      <categories>
-        <category>算法</category>
-      </categories>
-      <tags>
-        <tag>图论</tag>
       </tags>
   </entry>
   <entry>
@@ -1441,6 +1426,80 @@
       </categories>
       <tags>
         <tag>差量压缩</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>6.824 lab3a</title>
+    <url>/wiki/6-824-lab3a/</url>
+    <content><![CDATA[<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><p><a href="https://zhuanlan.zhihu.com/p/267685488">MIT 6.824 Lab3 翻译（Key&#x2F;Value Server Base on Raft） - 知乎 (zhihu.com)</a></p>
+<h1 id="实现踩坑过程"><a href="#实现踩坑过程" class="headerlink" title="实现踩坑过程"></a>实现踩坑过程</h1><p>首先按照自己的思路进行了基本实现，踩了许多坑。</p>
+<p>错误1：</p>
+<blockquote>
+<p>Test: one client (3A)</p>
+<p>2022&#x2F;12&#x2F;06 17:12:56 2 server: Get RPC opf.opIndex&#x3D;&#x3D;3 but args.OpIndex&#x3D;&#x3D;5</p>
+</blockquote>
+<p>原因：对于opIndex &#x3D;&#x3D; maxOpIndex的情况，这条指令也已经在raft层中Start一次commit了，也需要读取applyCh，而我忘记了。</p>
+<p>错误2：</p>
+<blockquote>
+<p>Test: progress in majority (3A)</p>
+<p>2022&#x2F;12&#x2F;06 18:22:20 2 server: Get RPC opf.opIndex&#x3D;&#x3D;1 but args.OpIndex&#x3D;&#x3D;2, opf&#x3D;&#x3D;{1 Put 1 14}</p>
+</blockquote>
+<p>发现我忘了一件事情：就算不是leader，也要apply来自raft的日志（已实现，用一个goroutine来定期apply）</p>
+<p>错误3：</p>
+<blockquote>
+<p>— FAIL: TestUnreliable3A (5.24s)<br> test_test.go:293: get wrong value, key 3, wanted:<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 7 y<br> , got<br> x 3 0 yx 3 1 yx 3 2 yx 3 3 yx 3 4 yx 3 5 yx 3 6 yx 3 6 yx 3 7 y<br> test_test.go:293: get wrong value, key 1, wanted:<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 9 yx 1 10 y<br> , got<br> x 1 0 yx 1 1 yx 1 2 yx 1 3 yx 1 4 yx 1 5 yx 1 6 yx 1 7 yx 1 8 yx 1 8 yx 1 9 yx 1 9 yx 1 10 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 1 8 y in Append result</p>
+</blockquote>
+<p>当网络不稳定时，有一些指令被重复执行了。发现在server的RPC处理当中，我应该把判断OpIndex的逻辑写到Start前面，不然由于applyCh是单独的goroutine读取，在Start之后还是会重复执行提交但未回复的指令。</p>
+<p>错误4：</p>
+<blockquote>
+<p>Test: completion after heal (3A) …</p>
+<p>— FAIL: TestOnePartition3A (6.21s)</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">test_test.go:539: Put did not complete</span><br></pre></td></tr></table></figure>
+</blockquote>
+<p>发现没有实现超时机制。设计了一个map，保存每个client对应的已applied的opf，由RPC handler尝试读取，直至超时。实现超时后仍通不过，调试发现kv.maxOpIndexs应该写在applyLogs()协程里面。修改后通过该测试样例及之前的所有样例。</p>
+<p>错误5：</p>
+<blockquote>
+<p>— FAIL: TestManyPartitionsOneClient3A (14.86s)<br> test_test.go:293: get wrong value, key 0, wanted:<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 y<br> , got<br> x 0 0 yx 0 1 yx 0 2 yx 0 3 yx 0 4 yx 0 5 yx 0 6 yx 0 7 yx 0 8 yx 0 9 yx 0 10 yx 0 11 yx 0 12 yx 0 13 yx 0 14 yx 0 15 yx 0 16 yx 0 17 yx 0 18 yx 0 19 yx 0 20 yx 0 21 yx 0 22 yx 0 23 yx 0 24 yx 0 25 yx 0 25 y<br> test_test.go:126: failure<br> test_test.go:148: duplicate element x 0 25 y in Append result</p>
+</blockquote>
+<p>在Partition测试中又出现重复写入。在applyLogs中去重后又发现：client让某个partition A apply了一个操作，当这个partition A和另一个partition B合并时，领导者变成了partition B的成员，但partition A的maxOpIndex更新，导致partition A无法执行新命令。</p>
+<p>发现applyLogs的sleep应该删掉，否则apply太慢了。但是错误仍未解决。</p>
+<p>继续跟踪Raft发现，旧leader向大多数节点append一个指令对应的日志成功后，在本地状态机进行了commit，并进行了apply，使得K&#x2F;V层的指令执行成功。但commit之后还来不及通过心跳或appendEntries让其他节点接收到leaderCommit，就变更领导者了，由于新领导者认为这个命令还未apply，所以无法执行后续指令。这应该就是实验指南和论文中提到的领导者变更问题。为了确保我的Raft实现没问题，用网上的lab3代码跑了一下3A，确定能够通过测试，从而将问题焦点落在server的实现上。</p>
+<p>将代码进行了进一步检查和修改，又倒腾了一下午debug，终于通过所有算例。完整实现思路以下一章为准。</p>
+<h1 id="完整设计思路"><a href="#完整设计思路" class="headerlink" title="完整设计思路"></a>完整设计思路</h1><h2 id="Client"><a href="#Client" class="headerlink" title="Client"></a>Client</h2><p>Client向任意服务器发送请求，请求失败则换服务器重试，直到请求成功为止。每个Client以创建时的时间戳作为其ID，请求序号从1递增。</p>
+<h2 id="Server"><a href="#Server" class="headerlink" title="Server"></a>Server</h2><p>server数据结构：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="keyword">type</span> KVServer <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu      sync.Mutex</span><br><span class="line">    me      <span class="type">int</span></span><br><span class="line">    rf      *raft.Raft</span><br><span class="line">    applyCh <span class="keyword">chan</span> raft.ApplyMsg</span><br><span class="line">    dead    <span class="type">int32</span> <span class="comment">// set by Kill()</span></span><br><span class="line"></span><br><span class="line">    maxraftstate <span class="type">int</span> <span class="comment">// snapshot if log grows this big</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Your definitions here.</span></span><br><span class="line">    table <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span> <span class="comment">// the database</span></span><br><span class="line">    <span class="comment">// appliedLogs   string // for test</span></span><br><span class="line">    maxOpIndexs   <span class="keyword">map</span>[<span class="type">int</span>]<span class="type">int</span> <span class="comment">// the latest operation that server has applied for each client</span></span><br><span class="line">    clientApplied <span class="keyword">map</span>[<span class="type">int</span>]<span class="keyword">chan</span> OpFields</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>table为存储K&#x2F;V对的哈希表，maxOpIndexs保存每个客户端已经applied的最大请求编号，clientApplied用于在server成功apply一个请求的时候通知Get&#x2F;PutAppend handler。</p>
+<p>用于apply从Raft端提交的日志的go routine如下：</p>
+<figure class="highlight go"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(kv *KVServer)</span></span> applyLogs() &#123;</span><br><span class="line">    <span class="keyword">for</span> kv.killed() == <span class="literal">false</span> &#123;</span><br><span class="line">        applyMsg := &lt;-kv.applyCh</span><br><span class="line"></span><br><span class="line">        op, ok := applyMsg.Command.(Op)</span><br><span class="line">        <span class="keyword">if</span> !ok &#123;</span><br><span class="line">            log.Fatal(errors.New(<span class="string">&quot;applyMsg type error&quot;</span>))</span><br><span class="line">        &#125;</span><br><span class="line">        opf := op.DecodeOp()</span><br><span class="line"></span><br><span class="line">        DPrintf(<span class="string">&quot;%v server: applyCh receive logIdx: %v, OpIndex: %v, Key: %v, value: %v, ClientId: %v\n&quot;</span>, kv.me, applyMsg.CommandIndex, opf.opIndex, opf.key, opf.value, opf.ckId)</span><br><span class="line">        kv.mu.Lock()</span><br><span class="line">        <span class="keyword">if</span> opf.opIndex &gt; kv.maxOpIndexs[opf.ckId] &#123;</span><br><span class="line">            kv.OperatePutAppend(opf)</span><br><span class="line">            kv.maxOpIndexs[opf.ckId] = opf.opIndex</span><br><span class="line">        &#125;</span><br><span class="line">        kv.mu.Unlock()</span><br><span class="line"></span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> kv.clientApplied[opf.ckId] &lt;- opf:</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当Raft提交上来的日志编号大于当前应用的最大编号时，server才将其执行，以避免重复。然后，server借助kv.clientApplied中的channel告知Get&#x2F;PutAppend Handler请求已被提交。</p>
+<p>这里的一个问题是为什么满足<code>opf.opIndex &gt; kv.maxOpIndexs[opf.ckId]</code>的请求就可以执行，而不需要<code>opf.opIndex == kv.maxOpIndexs[opf.ckId]+1</code>。这是我之前调试时一直犯的错误。我举个例子，假设当前对于某个客户端，MaxOpIndex为1，而opf.opIndex为3，那么此时有可能2还没有执行完，正在处于重试阶段，而用户就又输入了第三条指令。因此上述语句只需要保证不重复执行就行，而无需按照OpIndex顺序执行。</p>
+<p>Get&#x2F;PutAppend Handler执行过程如下：</p>
+<ol>
+<li><p>调用Start</p>
+</li>
+<li><p>通过Start的返回值判断是否为leader，若不为leader直接返回</p>
+</li>
+<li><p>判断是否<code>args.OpIndex == kv.maxOpIndexs[args.ClientId]</code>，若满足，则是论文中所提到的这条指令已经应用但未回复客户端的情况。此时直接回复即可。</p>
+</li>
+<li><p>在clientApplied中创建一个channel用于唤醒</p>
+</li>
+<li><p>使用select语句从channel中读取。若在规定时间内读取成功，需满足<code>opf.opIndex &gt;= args.OpIndex</code>才能回复成功；若读取超时，则回复Wrong Leader。</p>
+</li>
+<li><p>删除这个channel</p>
+</li>
+</ol>
+<h2 id="关于加锁"><a href="#关于加锁" class="headerlink" title="关于加锁"></a>关于加锁</h2><p>Client中的锁只作用与序列号，而没有作用于整个过程。这代表一个指令执行过程中，还可以交叉执行其他指令。指令最终在K&#x2F;V数据库中作用的顺序以指令开始被请求的顺序，即加锁确定序列号的前后顺序为准。</p>
+<p>Server同理。</p>
+]]></content>
+      <categories>
+        <category>分布式</category>
+      </categories>
+      <tags>
+        <tag>Raft</tag>
+        <tag>Go</tag>
+        <tag>KV数据库</tag>
       </tags>
   </entry>
   <entry>
@@ -2256,85 +2315,154 @@
       </tags>
   </entry>
   <entry>
-    <title>两道求最大面积的题目在解法上的不同</title>
-    <url>/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/</url>
-    <content><![CDATA[<p>今天发现两道看似十分相似但实际上有很大不同的题目，差点转不过弯来，分别是<strong>LeetCode 11 盛最多水的容器</strong>和<strong>LeetCode 84 柱状图中最大的矩形</strong>。</p>
-<p><strong>LeetCode 11 盛最多水的容器</strong></p>
+    <title>基于C++的Web服务器</title>
+    <url>/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/</url>
+    <content><![CDATA[<h1 id="项目简介"><a href="#项目简介" class="headerlink" title="项目简介"></a>项目简介</h1><h2 id="编程模型"><a href="#编程模型" class="headerlink" title="编程模型"></a>编程模型</h2><ul>
+<li><p>epoll I&#x2F;O多路复用</p>
+</li>
+<li><p>ET边沿触发+EPOLLONESHOT</p>
+</li>
+<li><p>非阻塞I&#x2F;O</p>
+</li>
+<li><p>Reactor模式</p>
+</li>
+</ul>
+<h2 id="实现功能"><a href="#实现功能" class="headerlink" title="实现功能"></a>实现功能</h2><ul>
+<li><p>HTTP GET请求</p>
+</li>
+<li><p>HTTP长连接+超时处理</p>
+</li>
+<li><p>日志</p>
+</li>
+</ul>
+<h1 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h1><h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ThreadPool</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">ThreadPool</span><span class="params">(std::<span class="type">size_t</span> _thread_num, std::<span class="type">size_t</span> _max_request_num)</span> : \</span></span><br><span class="line"><span class="function">        threads(_thread_num), request_queue(_max_request_num) &#123;</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; thread : threads) &#123;</span><br><span class="line">            thread = std::<span class="built_in">thread</span>(&amp;ThreadPool::worker, <span class="keyword">this</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">ThreadPool</span>(ThreadPool&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">ThreadPool</span>(ThreadPool&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ThreadPool&amp; <span class="keyword">operator</span>=(ThreadPool&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ThreadPool&amp; <span class="keyword">operator</span>=(ThreadPool&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">ThreadPool</span>();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">append</span><span class="params">(RequestHandler* p_req)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">worker</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    std::vector&lt;std::thread&gt; threads;</span><br><span class="line">    ThreadSafeQueue&lt;RequestHandler*&gt; request_queue;</span><br><span class="line">    <span class="type">bool</span> stop = <span class="literal">false</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>采用<code>std::thread</code>线程库创建若干个工作线程。线程池包含一个线程安全队列<code>ThreadSafeQueue</code>，保存工作线程待处理的事件队列。实现<code>append</code>和<code>worker</code>方法，<code>append</code>方法将新事件加入线程安全队列，待线程池处理；<code>worker</code>方法为每个工作线程的工作函数，包含一个循环，工作线程从队列当中循环读取事件，并根据事件类型，执行读处理函数或写处理函数。</p>
+<h2 id="RequestHandler"><a href="#RequestHandler" class="headerlink" title="RequestHandler"></a>RequestHandler</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">RequestHandler</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">RequestHandler</span><span class="params">(std::<span class="type">size_t</span> read_buf_size = <span class="number">2048</span>, std::<span class="type">size_t</span> write_buf_size = <span class="number">2048</span>)</span> : read_state(read_buf_size),</span></span><br><span class="line"><span class="function">                                                                                     write_state(write_buf_size) &#123;</span></span><br><span class="line">        <span class="built_in">signal</span>(SIGPIPE, SIG_IGN);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">RequestHandler</span>(RequestHandler&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">RequestHandler</span>(RequestHandler&amp;&amp;) = <span class="keyword">default</span>;</span><br><span class="line">    RequestHandler&amp; <span class="keyword">operator</span>=(RequestHandler&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    RequestHandler&amp; <span class="keyword">operator</span>=(RequestHandler&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">RequestHandler</span>() = <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">reset</span><span class="params">(<span class="type">int</span> conn_fd, TimerTask* timer_task)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">process_read</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">process_write</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">close_conn_static</span><span class="params">(<span class="type">int</span> conn_fd, TimerTask* timer_task)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">close_conn</span><span class="params">(<span class="type">int</span> conn_fd)</span></span>;</span><br><span class="line">    [[nodiscard]] <span class="function"><span class="type">int</span> <span class="title">get_conn_fd</span><span class="params">()</span> <span class="type">const</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">mod_fd_to_epoll</span><span class="params">(<span class="type">int</span> epoll_fd, <span class="type">int</span> fd, <span class="type">uint32_t</span> events)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">static</span> <span class="type">int</span> epoll_fd;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">using</span> TaskType = <span class="keyword">enum</span> &#123;READ, WRITE&#125;;</span><br><span class="line">    TaskType task_type = READ;</span><br><span class="line"></span><br><span class="line">    <span class="type">static</span> TimerHeap* timer_heap;</span><br><span class="line">    TimerTask* timer_task = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">protected</span>:</span><br><span class="line">    <span class="type">int</span> conn_fd = <span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">    ReadState read_state;</span><br><span class="line">    WriteState write_state;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> keep_alive = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">write_status_code_to_buf</span><span class="params">(<span class="type">int</span> status_code, <span class="type">const</span> std::string &amp;err_msg, <span class="type">size_t</span> body_length = <span class="number">0</span>)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">write_file_info_to_buf</span><span class="params">(<span class="type">const</span> std::string &amp;url)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">read_socket_to_buf</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">write_buf_to_socket</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">parse_one_request</span><span class="params">()</span></span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>RequestHandler</code>为请求处理类，一个<code>RequestHandler</code>实例处理一个HTTP请求。<code>RequestHandler</code>类包含一个<code>ReadState</code>成员和一个<code>WriteState</code>成员，分别包含该socket的读、写状态信息和对应的缓冲区。<code>RequestHandler</code>类还包含当前触发事件类型（读或写）和相应的处理函数<code>process_read()</code>和<code>process_write()</code>。<code>RequestHandler</code>还包含超时处理的相关结构，将在后面的章节单独讨论，这里暂且不表。</p>
+<h3 id="ReadState和WriteState"><a href="#ReadState和WriteState" class="headerlink" title="ReadState和WriteState"></a>ReadState和WriteState</h3><ul>
+<li><p><code>ReadState</code>包含一段由<code>std::unique_ptr</code>管理的堆内存作为缓冲区，以及读指针。</p>
+</li>
+<li><p><code>WriteState</code>包含一段由<code>std::unique_ptr</code>管理的堆内存作为缓冲区，以及写指针。由于HTTP的写响应过程包含写请求头和写请求体（文件），因此<code>WriteState</code>还包含客户端所请求的文件描述符和状态变量。</p>
+</li>
+</ul>
+<h2 id="Server"><a href="#Server" class="headerlink" title="Server"></a>Server</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Server</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">Server</span><span class="params">(ServerConfig  _config)</span> : config(std::move(_config)), worker_thread_pool(config.thread_num, config.threadpool_max_request_num), \</span></span><br><span class="line"><span class="function">    timer_heap(config.timerheap_default_time_slot)</span></span><br><span class="line"><span class="function">    &#123;</span></span><br><span class="line">        listen_sock = <span class="built_in">socket</span>(PF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (listen_sock == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;socket() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">setsockopt</span>(listen_sock, SOL_SOCKET, SO_REUSEADDR, &amp;config.op_so_reuseaddr, <span class="built_in">sizeof</span>(config.op_so_reuseaddr))) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;setsockopt() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        sockaddr_in serv_addr&#123;&#125;;</span><br><span class="line">        serv_addr.sin_family = AF_INET;</span><br><span class="line">        serv_addr.sin_addr.s_addr = <span class="built_in">htonl</span>(INADDR_ANY);</span><br><span class="line">        serv_addr.sin_port = <span class="built_in">htons</span>(std::<span class="built_in">stoi</span>(config.port));</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">bind</span>(listen_sock, (sockaddr*)&amp;serv_addr, <span class="built_in">sizeof</span>(serv_addr)) == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;bind() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">listen</span>(listen_sock, config.listen_queue_len) == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;listen() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">pipe</span>(sig_pipe) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;pipe() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        request_handlers = std::<span class="built_in">vector</span>&lt;RequestHandler&gt;(config.max_fd);</span><br><span class="line">        timer_tasks = std::<span class="built_in">vector</span>&lt;TimerTask&gt;(config.max_fd);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">Server</span>(Server&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">Server</span>(Server&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    Server&amp; <span class="keyword">operator</span>=(Server&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    Server&amp; <span class="keyword">operator</span>=(Server&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">Server</span>();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">run</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">using</span> EpollSigHandlerReturnType = <span class="keyword">struct</span> &#123;<span class="type">bool</span> stop; <span class="type">bool</span> timeout;&#125;;</span><br><span class="line"></span><br><span class="line">    ServerConfig config;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> listen_sock;</span><br><span class="line">    <span class="type">static</span> <span class="type">int</span> sig_pipe[<span class="number">2</span>];</span><br><span class="line">    <span class="type">char</span> sig_buf[<span class="number">4</span>];</span><br><span class="line">    TimerHeap timer_heap;</span><br><span class="line">    std::vector&lt;RequestHandler&gt; request_handlers;</span><br><span class="line">    std::vector&lt;TimerTask&gt; timer_tasks;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">fd_set_non_blocking</span><span class="params">(<span class="type">int</span> fd)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">add_fd_to_epoll</span><span class="params">(<span class="type">int</span> epoll_fd, <span class="type">int</span> fd, <span class="type">uint32_t</span> events)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">sig_handler</span><span class="params">(<span class="type">int</span> sig)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">add_sig</span><span class="params">(<span class="type">int</span> sig)</span></span>;</span><br><span class="line">    [[nodiscard]] <span class="function">EpollSigHandlerReturnType <span class="title">epoll_sig_handler</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">timer_heap_ticker</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    ThreadPool worker_thread_pool;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>Server</code>为最外层的服务器类，包含一个工作线程池，一个<code>RequestHandler</code>数组。<code>Server</code>类在构造时，首先执行服务器编程必备的<code>socket</code>、<code>listen</code>、<code>bind</code>三件套，然后在<code>request_handlers</code>数组中构造<code>config.max_fd</code>个<code>RequestHandler</code>对象，与<code>config.max_fd</code>个文件描述符一一对应。当文件描述符fd accept了一个新的连接时，服务器会调用<code>request_handlers[fd].reset()</code>函数重置用于这个文件描述符的<code>RequestHandler</code>对象，使其做好处理新连接的准备。</p>
+<h1 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h1><h2 id="主线程"><a href="#主线程" class="headerlink" title="主线程"></a>主线程</h2><p>主线程将监听socket的可读事件注册到epoll当中，然后循环调用<code>epoll_wait</code>函数获取就绪事件：</p>
+<ul>
+<li>如果监听到监听socket的可读事件，则<code>accept</code>一个新连接，建立连接之后，socket并不一定处于可读状态（客户端还未发送数据），如果这个时候调用读处理函数，工作线程很有可能读不到内容直接返回，白白浪费CPU资源。因此，我们在这个地方直接将新连接的可读事件注册到epoll当中即可。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="built_in">add_fd_to_epoll</span>(epoll_fd, conn_sock, EPOLLET | EPOLLONESHOT | EPOLLIN);</span><br><span class="line"><span class="built_in">fd_set_non_blocking</span>(conn_sock);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>如果监听到连接socket的可读或可写事件，则设置<code>RequestHandler</code>的状态为<code>READ</code>或<code>WRITE</code>，然后加入线程池。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (ep_events[i].events &amp; EPOLLIN) &#123;</span><br><span class="line">    request_handlers[event_fd].task_type = RequestHandler::READ;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (ep_events[i].events &amp; EPOLLOUT) &#123;</span><br><span class="line">    request_handlers[event_fd].task_type = RequestHandler::WRITE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">worker_thread_pool.<span class="built_in">append</span>(&amp;request_handlers[event_fd]);</span><br></pre></td></tr></table></figure>
+
+<h2 id="工作线程"><a href="#工作线程" class="headerlink" title="工作线程"></a>工作线程</h2><h3 id="可读事件处理"><a href="#可读事件处理" class="headerlink" title="可读事件处理"></a>可读事件处理</h3><ul>
+<li><p>在ET边沿触发模式下，每个可读或可写事件只会被触发一次，因此，事件处理函数需要循环读或写socket，直到没有东西可读&#x2F;可写（返回EAGAIN &#x2F; EWOULDBLOCK），或者连接被关闭（返回0）为止。上述循环位于<code>read_socket_to_buf</code>和<code>write_buf_to_socket</code>函数中。</p>
+</li>
+<li><p>TCP是基于流的协议，这就意味着一次完整的读操作之后，缓冲区内有可能包含一个或多个HTTP请求，也有可能只包含一个请求的一部分。因此，我们也需要循环解析缓冲区的内容，并针对每个请求发送响应报文。</p>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RequestHandler::process_read</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">read_socket_to_buf</span>()) &#123; <span class="comment">// 读socket，直到没有东西可读</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// loop to deal with possible multiple requests in read buffer</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">parse_one_request</span>()) &#123; <span class="comment">// 解析一个请求，并将响应报文写到写缓冲区中</span></span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123; <span class="comment">// 发送写缓冲区内的所有内容</span></span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>问题来了。前面说到，在<code>accept</code>一个连接之后连接不一定可读，应该注册可读事件而不是直接执行读处理函数，否则工作线程可能读不到东西。那在这个地方，解析完一个HTTP请求之后，是否应该认为连接不一定可读，从而需要可读事件呢？</p>
+<p>答案是否定的。socket的可读可写条件如下：</p>
 <blockquote>
-<p>给你 n 个非负整数 a1，a2，…，an，每个数代表坐标中的一个点 (i, ai) 。在坐标内画 n 条垂直线，垂直线 i 的两个端点分别为 (i, ai) 和 (i, 0) 。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。</p>
-<p>说明：你不能倾斜容器。</p>
+<p>当如下任一情况发生时，会产生套接字的可读事件：</p>
+<ul>
+<li>该套接字的接收缓冲区中的数据字节数大于等于套接字接收缓冲区低水位标记的大小；</li>
+<li>该套接字的读半部关闭（也就是收到了FIN），对这样的套接字的读操作将返回0（也就是返回EOF）；</li>
+<li>该套接字是一个监听套接字且已完成的连接数不为0；</li>
+<li>该套接字有错误待处理，对这样的套接字的读操作将返回-1。</li>
+</ul>
+<p>当如下任一情况发生时，会产生套接字的可写事件：</p>
+<ul>
+<li>该套接字的发送缓冲区中的可用空间字节数大于等于套接字发送缓冲区低水位标记的大小；</li>
+<li>该套接字的写半部关闭，继续写会产生SIGPIPE信号；</li>
+<li>非阻塞模式下，connect返回之后，该套接字连接成功或失败；</li>
+<li>该套接字有错误待处理，对这样的套接字的写操作将返回-1。</li>
+</ul>
 </blockquote>
-<p><strong>LeetCode 84 柱状图中最大的矩形</strong></p>
+<p>可读和可写条件的后三条都是异常情况，我们只关注第一条。socket可读的条件是接收缓冲区的数据大于低水位标记，在<code>accept</code>之后，这个条件不一定会满足，因为我们不知道客户端在连接成功后到服务器调用<code>read</code>之前这段时间内会写入多少东西，因此服务器需要注册可读事件而不是直接读。然而，可写的条件是发送缓冲区的<strong>可用</strong>空间大于低水位标记，在第一次执行完<code>parse_one_request()</code>之后，这个条件是满足的。</p>
+<p>因此，我们先尝试进行发送，如果遇到发送失败的情况，再注册可写事件然后退出。</p>
+<h3 id="可写事件处理"><a href="#可写事件处理" class="headerlink" title="可写事件处理"></a>可写事件处理</h3><p>同样地，可写事件处理函数的第一步操作是尝试将写缓冲区的内容全部发送，如果发送失败，则注册可写事件并退出。</p>
+<p>如果写缓冲区的内容全部清空了，是否意味着我们可以退出函数了？</p>
+<p>还没。我们当前正在处理的可写事件，有可能是在<code>process_read()</code>的while循环中注册的。如果这个可写事件没有被注册，那么<code>process_read()</code>函数还会继续执行<code>parse_one_request()</code>，解析剩下的报文。这就意味着，在<code>process_write()</code>执行时，读缓冲区中同样可能留存有未被解析的报文，我们需要写一个同样的while循环进行解析。</p>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RequestHandler::process_write</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// write buffer and file</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// loop to parse read buffer and write</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">parse_one_request</span>()) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="长连接的实现"><a href="#长连接的实现" class="headerlink" title="长连接的实现"></a>长连接的实现</h1><p>HTTP支持长连接，客户端的HTTP请求报文中，如果<code>Connection</code>字段为<code>keep-alive</code>，表示客户端希望保持这个TCP连接不被断开，在发送下一次请求的时候仍然使用这个连接。在服务器当中，需要判断客户端是否请求建立长连接，然后在读缓冲区为空的时候执行不同的操作。</p>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">RequestHandler::parse_one_request</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (read_state.read_idx == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (keep_alive) &#123;</span><br><span class="line">            <span class="built_in">mod_fd_to_epoll</span>(epoll_fd, conn_fd, EPOLLET | EPOLLIN | EPOLLONESHOT); <span class="comment">// connection:keep-alive</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">close_conn</span>(conn_fd); <span class="comment">// connection:closed</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果不是长连接，则在读缓冲区为空时关闭连接；否则重新向epoll注册可读事件。</p>
+<h1 id="超时处理"><a href="#超时处理" class="headerlink" title="超时处理"></a>超时处理</h1><p>在使用HTTP长连接时，如果客户端长时间没有关闭连接，那么服务器应当主动关闭连接，避免资源被过多的非活跃连接占用。即使是在使用短连接的情况下，也有可能由于各种原因出现非活跃连接。为此，需要为每个活跃的连接设置一个定时器，在定时器超时时，服务器主动断开连接。</p>
+<h2 id="数据结构——惰性重置"><a href="#数据结构——惰性重置" class="headerlink" title="数据结构——惰性重置"></a>数据结构——惰性重置</h2><p>定时器的数据结构应该如何设计？我们采用一种常见的定时器——堆定时器。堆定时器应实现如下接口：</p>
+<ul>
+<li><p>插入一个定时任务</p>
+</li>
+<li><p>取出超时时刻最早的定时任务</p>
+</li>
+<li><p>重置一个定时任务的超时时刻</p>
+</li>
+</ul>
+<p>显然前两个接口可以通过<code>std::priority_queue</code>或<code>std::multiset</code>实现，只需要将超时时刻的先后作为比较两个定时任务的标准。</p>
 <blockquote>
-<p>给定 <em>n</em> 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。</p>
-<p>求在该柱状图中，能够勾勒出来的矩形的最大面积。</p>
+<p>P.S. 之所以需要用<code>std::multiset</code>而不是<code>std::set</code>，是因为同一个超时时刻有可能对应多个定时任务。</p>
 </blockquote>
-<p>我先写了84题，再回过头写11题时，以为两道题的区别就是柱状图和“挡板”的区别，还是用单调栈的方法，只需在求面积的时候做一点小修改即可。</p>
-<p>先看84题。从左往右遍历柱状图的每一个柱形，若当前遍历到的柱形比上一个柱形高，则无法确定以上一个柱形的高为高的最大矩形面积，因为矩形可以越过当前柱形，一直延伸到右边，而右边的情况还不知道；反之，若当前遍历到的柱形比上一个柱形低，则以上一个柱形的高为高的矩形肯定无法越过当前柱形，又因为其左侧所有柱形已经遍历过了，所以矩形能够延伸到的左右两边的极限都可以确定，以上一个柱形的高为高的最大矩形面积也确定下来了。实际上，以当前柱形左侧的所有比当前柱形高的柱形的高为高的最大矩形面积都可以确定下来了。上述算法可以通过栈实现，栈中依次存储所有以第i个柱形为高的矩形的最大面积还未确定时的i值。</p>
-<p>解决了第84题，我把代码套到第11题的时候发现无论我怎么修改边界条件，得出来的结果与答案都相去甚远。再次读题目的时候发现两道题有一个很大的不同：在第11题中，若确定了左右边界i、j，则所得矩形的高为min{height[i], height[j]}，换言之，<strong>水可以漫过挡板i、j中间的挡板</strong>；但在第84题中，所得矩形的高还受柱形i、j中间的柱形的限制，其值为min{height[i], height[i + 1], …, height[j - 1], height[j]}，换言之，<strong>柱形相当于容器，水不能超出容器，而且水的形状必须是矩形，可以将其理解为“冰块”</strong>。</p>
-<p>因此，第11题只要确定了左右边界i、j，就可以确定矩形的面积，故遍历时使用双指针即可。</p>
+<p>现在考虑第三个接口的实现。首先考虑一种最简单的实现方式：直接修改定时器任务对象的超时时刻。然而，我们首先要问一个问题：当元素被插入<code>std::priority_queue</code>或<code>std::multiset</code>之后，是否还能改变元素的key值？</p>
+<ul>
+<li><p><code>std::priority_queue</code>的实现是二叉堆，对于元素的排序操作发生在插入元素和取出根节点的时候。如果我们修改了根节点的key值，这个根节点的位置不会发生变化，还是会被首先取出；如果我们更改了非根节点的key值（使它的超时时刻变得最早），在下一次调用pop的时候也无法取出这个节点。</p>
+</li>
+<li><p><code>std::multiset</code>的实现是红黑树，其中所有节点的位置在每一个时刻都是确定的，且取决于每一个节点的key。如果在某一时刻修改了一个节点的key，将会破坏红黑树的结构。</p>
+</li>
+</ul>
+<p>可见，无论采用何种STL容器（适配器），定时器的超时时刻都不能够被随意修改。为了解决这个问题，本项目设计了一种惰性重置的方式。</p>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 基于multiset</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">TimerTask::reset</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    is_reset = <span class="literal">true</span>;</span><br><span class="line">    new_expired_time = std::<span class="built_in">time</span>(<span class="literal">nullptr</span>) + timeout;</span><br><span class="line"></span><br><span class="line"><span class="function">std::<span class="type">time_t</span> <span class="title">TimerHeap::tick</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (!s.<span class="built_in">empty</span>() &amp;&amp; (*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">get_expired_time</span>() &lt;= std::<span class="built_in">time</span>(<span class="literal">nullptr</span>)) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">is_valid</span>()) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((*s.<span class="built_in">begin</span>())-&gt;is_reset) &#123;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;is_reset = <span class="literal">false</span>;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;expired_time = (*s.<span class="built_in">begin</span>())-&gt;new_expired_time;</span><br><span class="line">                <span class="keyword">auto</span> ptr = *s.<span class="built_in">begin</span>();</span><br><span class="line">                s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">                s.<span class="built_in">insert</span>(ptr);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">callback</span>();</span><br><span class="line">                s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>定时任务包含<code>is_reset</code>字段和新的超时时刻<code>new_expired_time</code>字段，当需要充值定时任务时，不改变原始的<code>expired_time</code>字段，而是将<code>is_reset</code>置为<code>true</code>，并将新的超时时刻写入<code>new_expired_time</code>变量。当定时器进行<code>tick</code>时，在取出队首元素之后会判断是否进行了重置，若是，则修改其时间之后重新插入堆中。</p>
+<p>能否在<code>TimerTask::reset</code>函数当中执行删除和重新插入的操作？还是不行。注意到<code>tick</code>函数中我是用迭代器删除了首部元素。如果要在<code>reset</code>函数中进行删除，元素不一定在首部，只能通过key值删除。然而一个key值（超时时刻）会对应多个定时任务，我们无法通过一行代码直接删除目标元素，还需要遍历相同key的不同定时任务进行查找。</p>
+<p>如果采用的是<code>std::priority_queue</code>就更不用说了，根本没有删除中间元素的接口。</p>
+<p>因此，惰性删除是较好的选择。</p>
+<h2 id="std-multiset-or-std-priority-queue"><a href="#std-multiset-or-std-priority-queue" class="headerlink" title="std::multiset or std::priority_queue"></a>std::multiset or std::priority_queue</h2><p>使用惰性删除时，由于只需要取首元素，因此<code>std::priority_queue</code>和<code>std::multiset</code>均可。</p>
+<h2 id="启动和reset定时器的位置？"><a href="#启动和reset定时器的位置？" class="headerlink" title="启动和reset定时器的位置？"></a>启动和reset定时器的位置？</h2><ul>
+<li><p>启动定时器：accept时</p>
+</li>
+<li><p>reset定时器：监听到可读&#x2F;可写事件时</p>
+</li>
+</ul>
+<p>一种细粒度的实现是每次读&#x2F;写成功的时候都重启定时器，但是会过于消耗资源，并且提高编程复杂度。本项目的定时器粒度较粗。</p>
+<h1 id="遇到的其他问题"><a href="#遇到的其他问题" class="headerlink" title="遇到的其他问题"></a>遇到的其他问题</h1><h2 id="注册EPOLLONESHOT的作用？"><a href="#注册EPOLLONESHOT的作用？" class="headerlink" title="注册EPOLLONESHOT的作用？"></a>注册EPOLLONESHOT的作用？</h2><p>保证一个socket只由一个工作线程处理。</p>
+<p>如果不注册<code>EPOLLONESHOT</code>，在工作线程读一个socket的过程中，即使采用了ET边沿触发，主线程仍然有可能再次触发<code>EPOLLIN</code>事件，并交由另一个工作线程处理，造成两个线程同时读一个socket的局面。</p>
+<p>有人做了实验证明，ET模式，不注册<code>EPOLLONESHOT</code>，在读缓冲区溢出的时候会重复注册可读事件：<a href="https://juejin.cn/post/7102252724212727844">EPOLLONESHOT及其引发的EPOLL在ET能被多次触发吗？ - 掘金 (juejin.cn)</a></p>
+<h2 id="RequestHandler应当静态分配还是动态分配？"><a href="#RequestHandler应当静态分配还是动态分配？" class="headerlink" title="RequestHandler应当静态分配还是动态分配？"></a>RequestHandler应当静态分配还是动态分配？</h2><p>在项目的初始版本中，由于担心静态分配的<code>RequestHandler</code>占用太多内存，我采用的是动态分配的方式。每一个请求来了之后<code>make_unique</code>一个<code>RequestHandler</code>对象，然后将指针<code>std::move</code>给工作线程。然后问题来了：第一，缓冲区怎么设计？这时，一个<code>RequestHandler</code>对象并不是对应一个连接，而是对应一个连接的一次事件触发，在<code>RequestHandler</code>对象析构后，有可能读缓冲区还有不完整的报文，需要等待下一次可读事件。为此，需要在<code>Server</code>类中维护一个读写缓冲区集合。由于错误估计了内存占用，对于读写缓冲区，我仍然采用动态分配。。于是又涉及到如何线程安全的读写STL容器，以及确定缓冲区的删除时机的问题。在删除缓冲区时，又涉及到主线程和工作线程的通信，为此我还设计了一个通信队列……除此之外，由于定时器我也是动态分配的，所以又要走一套上面的流程。。</p>
+<p>编程上的复杂性还不够，动态分配<code>RequestHandler</code>还会带来<code>RequestHandler</code>的构造析构开销。</p>
+<p>经过了上述尝试，我又将<code>RequestHandler</code>改为静态分配了。事实上，现有实现中，<code>RequestHandler</code>对象占用空间不超过5KB，数组长度为65536，占用内存仅有320MB，这对于一台Web服务器来说完全可以接收。</p>
+<h2 id="HTTP的格式问题"><a href="#HTTP的格式问题" class="headerlink" title="HTTP的格式问题"></a>HTTP的格式问题</h2><p>在DEBUG的过程中，我看到网上好一些博客都说HTTP的<code>Content-Length</code>字段是八进制的，为此还懊恼了好久。后来调着调着发现用八进制结果也不对啊（浏览器在显示完我的页面之后还会一直转圈）。</p>
+<p>无奈只能查RFC，原文是这么说的：</p>
+<blockquote>
+<p><a href="https://datatracker.ietf.org/doc/html/rfc2616#section-14.13">14.13</a> Content-Length</p>
+<p>   The Content-Length entity-header field indicates the size of the<br>   entity-body, <strong>in decimal number of OCTETs</strong>, sent to the recipient or,<br>   in the case of the HEAD method, the size of the entity-body that<br>   would have been sent had the request been a GET.</p>
+</blockquote>
+<p>博主们，你们只知道OCT是八进制，不知道decimal是十进制吗？？再说他也不是OCT，而是OCTETs啊，看看维基百科怎么说的：</p>
+<blockquote>
+<p>The <strong>octet</strong> is a <a href="https://en.wikipedia.org/wiki/Units_of_information" title="Units of information">unit of digital information</a> in <a href="https://en.wikipedia.org/wiki/Computing" title="Computing">computing</a> and <a href="https://en.wikipedia.org/wiki/Telecommunication" title="Telecommunication">telecommunications</a> that consists of eight <a href="https://en.wikipedia.org/wiki/Bit" title="Bit">bits</a>. The term is often used when the term <em><a href="https://en.wikipedia.org/wiki/Byte" title="Byte">byte</a></em> might be ambiguous, as the byte has historically been used for storage units of a variety of sizes.</p>
+</blockquote>
+<p>OCTET就是8比特，就是字节。也就是说，<code>Content-Length</code>就是用十进制表示的字节数。。建议大家遇到这种协议、规范、定义类的东西最好查原文，不要看博客。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><blockquote>
+<ul>
+<li>[1] 游双. Linux高性能服务器编程</li>
+</ul>
+</blockquote>
 ]]></content>
       <categories>
-        <category>算法</category>
+        <category>C++</category>
       </categories>
       <tags>
-        <tag>单调栈</tag>
-        <tag>双指针</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>区间调度问题</title>
-    <url>/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/</url>
-    <content><![CDATA[<h2 id="一、区间不相交问题"><a href="#一、区间不相交问题" class="headerlink" title="一、区间不相交问题"></a>一、区间不相交问题</h2><blockquote>
-<p>给出N个开区间(start, end)，从中选择尽可能多的区间，使得这些区间两两不相交。</p>
-</blockquote>
-<p>解决思路是将区间集合S中的所有区间按照end值从小到大的顺序进行排序，然后执行下列步骤：</p>
-<ol>
-<li>从区间集合S中选取end值最小的区间i，将i加入区间集合T。</li>
-<li>寻找与i相交的所有区间，将这些区间从集合S中删除。</li>
-<li>若S非空，跳转到步骤1。</li>
-</ol>
-<p>区间T即为所求。</p>
-<p>证明思路可以考虑反证法：假设某一次选择的i的end值并不是集合S中最小的，如果存在与区间i相交且end值更小的区间i’，则选择i’所移除的区间数不会大于选择i所移除的区间数，此时选取end值更小的i’会使局部结果更优。</p>
-<p>实现如下：</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> a[<span class="number">1</span>] &lt; b[<span class="number">1</span>];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> count = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt; intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ++count;</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-
-
-<h2 id="二、应用1：LeetCode-435-无重叠区间"><a href="#二、应用1：LeetCode-435-无重叠区间" class="headerlink" title="二、应用1：LeetCode 435 无重叠区间"></a>二、应用1：LeetCode 435 无重叠区间</h2><blockquote>
-<p>给定一个区间的集合，找到需要移除区间的最小数量，使剩余区间互不重叠。</p>
-</blockquote>
-<p>移除的最小区间数量就是区间总数减去剩余的最大区间数量。</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">eraseOverlapIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> intervals.<span class="built_in">size</span>() - <span class="built_in">mostDisjointIntervals</span>(intervals);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="三、应用2：LeetCode-452-用最少数量的箭引爆气球"><a href="#三、应用2：LeetCode-452-用最少数量的箭引爆气球" class="headerlink" title="三、应用2：LeetCode 452 用最少数量的箭引爆气球"></a>三、应用2：LeetCode 452 用最少数量的箭引爆气球</h2><blockquote>
-<p>在二维空间中有许多球形的气球。对于每个气球，提供的输入是水平方向上，气球直径的开始和结束坐标。由于它是水平的，所以纵坐标并不重要，因此只要知道开始和结束的横坐标就足够了。开始坐标总是小于结束坐标。</p>
-<p>一支弓箭可以沿着 x 轴从不同点完全垂直地射出。在坐标 x 处射出一支箭，若有一个气球的直径的开始和结束坐标为 xstart，xend， 且满足  xstart ≤ x ≤ xend，则该气球会被引爆。可以射出的弓箭的数量没有限制。 弓箭一旦被射出之后，可以无限地前进。我们想找到使得所有气球全部被引爆，所需的弓箭的最小数量。</p>
-<p>给你一个数组 points ，其中 points [i] &#x3D; [xstart,xend] ，返回引爆所有气球所必须射出的最小弓箭数。</p>
-</blockquote>
-<p>在区间不相交问题中，每当选取一个区间时，与其相交的区间也会被移除。这相当于在本问题中，每射爆一个气球，与其相重叠的气球也会被射爆。因此两个问题是等价的，可以套用前面的代码，只不过本题中的区间是闭区间而不是开区间，需要修改边界条件。</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ...</span><br><span class="line">        <span class="comment">// 将小于号改为小于等于号</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="四、变形1：LeetCode-56-合并区间"><a href="#四、变形1：LeetCode-56-合并区间" class="headerlink" title="四、变形1：LeetCode 56 合并区间"></a>四、变形1：LeetCode 56 合并区间</h2><blockquote>
-<p>给出一个区间的集合，请合并所有重叠的区间。</p>
-</blockquote>
-<p>本题仍是与区间重叠相关的问题，但是与上面三题有一点不同。上面三题的重叠区间是以某一个区间为参照的，也就是说所有的区间都必须与某一个特定的区间重叠。但是这一题不需要，对于所要合并的区间集合中的每一个区间，只需要与集合中的任意一个区间重叠即可。</p>
-<p>本题的算法核心仍是贪心，但是需要做出一点调整：对区间集合使用字典排序，即先比较start，按照start升序排列，若start值相同，再按end升序排列。这样排序的目的是使所有能够进行合并的区间相邻。排序后，从前往后遍历区间，将尽可能多的相邻的重叠区间合并成一个大区间。对于每个合并后的大区间，其start值就是最左侧的小区间的start，其end值是所有小区间当中end值最大的那个。故在遍历期间，需要维护变量maxEnd存储end值的最大值。</p>
-<p>题解如下，可见代码在上述三题的基础上修改了比较函数、内层循环的条件以及增加了maxEnd变量的维护：</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (a[<span class="number">0</span>] &gt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">0</span>] &lt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">1</span>] &lt; b[<span class="number">1</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">merge</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> maxEnd = intervals[i][<span class="number">1</span>];</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= maxEnd)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (intervals[j][<span class="number">1</span>] &gt; maxEnd)</span><br><span class="line">            maxEnd = intervals[j][<span class="number">1</span>];</span><br><span class="line">            ++j;</span><br><span class="line">        &#125;  </span><br><span class="line">        ans.<span class="built_in">push_back</span>(vector&lt;<span class="type">int</span>&gt; &#123;intervals[i][<span class="number">0</span>], maxEnd&#125;);</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
-<h2 id="五、变形2：LeetCode-57-插入区间"><a href="#五、变形2：LeetCode-57-插入区间" class="headerlink" title="五、变形2：LeetCode 57 插入区间"></a>五、变形2：LeetCode 57 插入区间</h2><blockquote>
-<p>给出一个<em>无重叠的 ，</em>按照区间起始端点排序的区间列表。</p>
-<p>在列表中插入一个新的区间，你需要确保列表中的区间仍然有序且不重叠（如果有必要的话，可以合并区间）。</p>
-</blockquote>
-<p>这道题的难度为“困难”，但是相比之前的几道题目其实反而不需要用到什么特别的算法，只需从左到右遍历区间集合，找到新区间的插入位置并进行（可能的）合并操作。题目给的区间集合是<strong>无重叠</strong>的，因此省去了存储maxEnd的步骤，只需考虑边界条件进行适当的分类讨论即可。我的代码较为复杂，还可以进一步简化。</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">insert</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals, vector&lt;<span class="type">int</span>&gt;&amp; newInterval)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> inserted = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (!inserted)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (newInterval[<span class="number">0</span>] &gt; intervals[i][<span class="number">1</span>])</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (newInterval[<span class="number">1</span>] &gt;= intervals[i][<span class="number">0</span>])</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= newInterval[<span class="number">1</span>])</span><br><span class="line">                    ++j;</span><br><span class="line">                <span class="type">int</span> newStart = <span class="built_in">min</span>(newInterval[<span class="number">0</span>], intervals[i][<span class="number">0</span>]);</span><br><span class="line">                <span class="keyword">if</span> (j == i + <span class="number">1</span>)</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[i][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                &#123;</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[j - <span class="number">1</span>][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                &#125;</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">                i = j;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">            &#123;</span><br><span class="line">                ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!inserted)</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-]]></content>
-      <categories>
-        <category>算法</category>
-      </categories>
-      <tags>
-        <tag>贪心</tag>
+        <tag>后端</tag>
+        <tag>网络编程</tag>
       </tags>
   </entry>
   <entry>
@@ -2454,62 +2582,85 @@
       </tags>
   </entry>
   <entry>
-    <title>C++11中的负数取模问题</title>
-    <url>/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/</url>
-    <content><![CDATA[<ul>
-<li>今天在做<a href="https://leetcode.cn/problems/convert-to-base-2/description/">1017. 负二进制转换 - 力扣（Leetcode）</a>的时候涉及到了负数取模问题，逼迫我对这个知识点进行了学习。</li>
-<li>题目描述如下：</li>
-</ul>
-<blockquote>
-<p>给你一个整数 <code>n</code> ，以二进制字符串的形式返回该整数的 <strong>负二进制（<code>base -2</code>）</strong>表示。</p>
-<p><strong>注意，</strong>除非字符串就是 <code>&quot;0&quot;</code>，否则返回的字符串中不能含有前导零。</p>
-<p><strong>示例 1：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 2</span><br><span class="line">输出：&quot;110&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 = 2</span><br></pre></td></tr></table></figure>
-
-<p><strong>示例 2：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 3</span><br><span class="line">输出：&quot;111&quot;</span><br><span class="line">解释：(-2)^2 + (-2)^1 + (-2)^0 = 3</span><br></pre></td></tr></table></figure>
-
-<p><strong>示例 3：</strong></p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">输入：n = 4</span><br><span class="line">输出：&quot;100&quot;</span><br><span class="line">解释：(-2)^2 = 4</span><br></pre></td></tr></table></figure>
+    <title>区间调度问题</title>
+    <url>/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h2 id="一、区间不相交问题"><a href="#一、区间不相交问题" class="headerlink" title="一、区间不相交问题"></a>一、区间不相交问题</h2><blockquote>
+<p>给出N个开区间(start, end)，从中选择尽可能多的区间，使得这些区间两两不相交。</p>
 </blockquote>
-<ul>
-<li>一种最简单的解法如下：</li>
-</ul>
-<blockquote>
-<p>与转化为二进制没什么区别，都是除基取余，倒序排列。<br>不过负二进制的余数可能有0，1，-1，而表示上不能有负数，所以在余数为-1时，要转化为1，同时商+1即可</p>
-<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Solution</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function">string <span class="title">baseNeg2</span><span class="params">(<span class="type">int</span> n)</span> </span>&#123;</span><br><span class="line">        string ans;</span><br><span class="line">        <span class="keyword">while</span>(n)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="type">int</span> remain=n%(<span class="number">-2</span>);</span><br><span class="line">            ans+=<span class="string">&#x27;0&#x27;</span>+<span class="built_in">abs</span>(remain);</span><br><span class="line">            n=remain&lt;<span class="number">0</span>?n/(<span class="number">-2</span>)+<span class="number">1</span>:n/(<span class="number">-2</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">reverse</span>(ans.<span class="built_in">begin</span>(),ans.<span class="built_in">end</span>());</span><br><span class="line">        <span class="keyword">return</span> ans.<span class="built_in">empty</span>()?<span class="string">&quot;0&quot;</span>:ans;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
-</blockquote>
-<ul>
-<li>这里涉及到<code>n%(-2)</code>和<code>n/(-2)</code>的运算结果。C++ Primer第五版中是这么说的：</li>
-</ul>
-<blockquote>
-<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406133817963.png" alt="image-20230406133817963"></p>
-</blockquote>
-<ul>
-<li><p>C++ Primer中的这两段话可以归纳为如下两点：</p>
+<p>解决思路是将区间集合S中的所有区间按照end值从小到大的顺序进行排序，然后执行下列步骤：</p>
 <ol>
-<li><p>在C++11中，除法运算<code>m/n</code>的商一律向零取整。此时，<code>m/n</code>、<code>m/(-n)</code>、<code>(-m)/n</code>、<code>(-m)/(-n)</code>这四个表达式的运算结果的绝对值均相等，运算结果的符号取决与被除数与除数是否同号，同号得正，异号得负。例如：21&#x2F;5&#x3D;4，21&#x2F;(-5)&#x3D;-4，-21&#x2F;5&#x3D;-4，-21&#x2F;(-5)&#x3D;4。换言之，<strong>商的绝对值乘以除数的绝对值一定不超过但最接近被除数的绝对值</strong>。</p>
-</li>
-<li><p>根据1可以推出，取模运算<code>m%n</code>的结果永远与<code>m</code>同号</p>
-</li>
+<li>从区间集合S中选取end值最小的区间i，将i加入区间集合T。</li>
+<li>寻找与i相交的所有区间，将这些区间从集合S中删除。</li>
+<li>若S非空，跳转到步骤1。</li>
 </ol>
-</li>
-<li><p>回到LeetCode 1017这道题。当我们使用”除-2取余法“时，可能得到的余数为0、1、-1。由于最终结果为“-2的非负整数次幂相加”的形式，当余数为0或1时，可以直接作为结果中的一位；当余数为-1时，必须将其转换为非负数，方法为：让被除数多除一个-2，商加1，由于多除了一个-2，余数就需要减去一个-2，即余数-1加上2变为1。</p>
-</li>
-<li><p>本质上，解决这道题需要使用“正数除以负数，商向0取整；负数除以负数，商向无穷取整”的除法规则进行除-2取余，这样得到的所有余数都是正的，能够组合成“-2的非负整数次幂相加”的形式。然而由于C++11标准的除法一律向0取整，我们需要在每次得到负余数的时候多进行一次调整，以符合题目要求的除法规则。</p>
-</li>
-<li><p>为加深理解，再附上C++17中不同整数除以-2的运行结果：</p>
-</li>
-</ul>
-<p><img src="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/image-20230406140637592.png" alt="image-20230406140637592"></p>
+<p>区间T即为所求。</p>
+<p>证明思路可以考虑反证法：假设某一次选择的i的end值并不是集合S中最小的，如果存在与区间i相交且end值更小的区间i’，则选择i’所移除的区间数不会大于选择i所移除的区间数，此时选取end值更小的i’会使局部结果更优。</p>
+<p>实现如下：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> a[<span class="number">1</span>] &lt; b[<span class="number">1</span>];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> count = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt; intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ++count;</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> count;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="二、应用1：LeetCode-435-无重叠区间"><a href="#二、应用1：LeetCode-435-无重叠区间" class="headerlink" title="二、应用1：LeetCode 435 无重叠区间"></a>二、应用1：LeetCode 435 无重叠区间</h2><blockquote>
+<p>给定一个区间的集合，找到需要移除区间的最小数量，使剩余区间互不重叠。</p>
+</blockquote>
+<p>移除的最小区间数量就是区间总数减去剩余的最大区间数量。</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">eraseOverlapIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> intervals.<span class="built_in">size</span>() - <span class="built_in">mostDisjointIntervals</span>(intervals);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="三、应用2：LeetCode-452-用最少数量的箭引爆气球"><a href="#三、应用2：LeetCode-452-用最少数量的箭引爆气球" class="headerlink" title="三、应用2：LeetCode 452 用最少数量的箭引爆气球"></a>三、应用2：LeetCode 452 用最少数量的箭引爆气球</h2><blockquote>
+<p>在二维空间中有许多球形的气球。对于每个气球，提供的输入是水平方向上，气球直径的开始和结束坐标。由于它是水平的，所以纵坐标并不重要，因此只要知道开始和结束的横坐标就足够了。开始坐标总是小于结束坐标。</p>
+<p>一支弓箭可以沿着 x 轴从不同点完全垂直地射出。在坐标 x 处射出一支箭，若有一个气球的直径的开始和结束坐标为 xstart，xend， 且满足  xstart ≤ x ≤ xend，则该气球会被引爆。可以射出的弓箭的数量没有限制。 弓箭一旦被射出之后，可以无限地前进。我们想找到使得所有气球全部被引爆，所需的弓箭的最小数量。</p>
+<p>给你一个数组 points ，其中 points [i] &#x3D; [xstart,xend] ，返回引爆所有气球所必须射出的最小弓箭数。</p>
+</blockquote>
+<p>在区间不相交问题中，每当选取一个区间时，与其相交的区间也会被移除。这相当于在本问题中，每射爆一个气球，与其相重叠的气球也会被射爆。因此两个问题是等价的，可以套用前面的代码，只不过本题中的区间是闭区间而不是开区间，需要修改边界条件。</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">mostDisjointIntervals</span><span class="params">(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ...</span><br><span class="line">        <span class="comment">// 将小于号改为小于等于号</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= intervals[i][<span class="number">1</span>] )</span><br><span class="line">            ++j;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="四、变形1：LeetCode-56-合并区间"><a href="#四、变形1：LeetCode-56-合并区间" class="headerlink" title="四、变形1：LeetCode 56 合并区间"></a>四、变形1：LeetCode 56 合并区间</h2><blockquote>
+<p>给出一个区间的集合，请合并所有重叠的区间。</p>
+</blockquote>
+<p>本题仍是与区间重叠相关的问题，但是与上面三题有一点不同。上面三题的重叠区间是以某一个区间为参照的，也就是说所有的区间都必须与某一个特定的区间重叠。但是这一题不需要，对于所要合并的区间集合中的每一个区间，只需要与集合中的任意一个区间重叠即可。</p>
+<p>本题的算法核心仍是贪心，但是需要做出一点调整：对区间集合使用字典排序，即先比较start，按照start升序排列，若start值相同，再按end升序排列。这样排序的目的是使所有能够进行合并的区间相邻。排序后，从前往后遍历区间，将尽可能多的相邻的重叠区间合并成一个大区间。对于每个合并后的大区间，其start值就是最左侧的小区间的start，其end值是所有小区间当中end值最大的那个。故在遍历期间，需要维护变量maxEnd存储end值的最大值。</p>
+<p>题解如下，可见代码在上述三题的基础上修改了比较函数、内层循环的条件以及增加了maxEnd变量的维护：</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">cmp</span><span class="params">(vector&lt;<span class="type">int</span>&gt;&amp; a, vector&lt;<span class="type">int</span>&gt;&amp; b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (a[<span class="number">0</span>] &gt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">0</span>] &lt; b[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (a[<span class="number">1</span>] &lt; b[<span class="number">1</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">merge</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    <span class="built_in">sort</span>(intervals.<span class="built_in">begin</span>(), intervals.<span class="built_in">end</span>(), cmp);</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">int</span> maxEnd = intervals[i][<span class="number">1</span>];</span><br><span class="line">        <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">        <span class="comment">// 找到第一个不与intervals[i]相交的区间intervals[j]</span></span><br><span class="line">        <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= maxEnd)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (intervals[j][<span class="number">1</span>] &gt; maxEnd)</span><br><span class="line">            maxEnd = intervals[j][<span class="number">1</span>];</span><br><span class="line">            ++j;</span><br><span class="line">        &#125;  </span><br><span class="line">        ans.<span class="built_in">push_back</span>(vector&lt;<span class="type">int</span>&gt; &#123;intervals[i][<span class="number">0</span>], maxEnd&#125;);</span><br><span class="line">        i = j;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="五、变形2：LeetCode-57-插入区间"><a href="#五、变形2：LeetCode-57-插入区间" class="headerlink" title="五、变形2：LeetCode 57 插入区间"></a>五、变形2：LeetCode 57 插入区间</h2><blockquote>
+<p>给出一个<em>无重叠的 ，</em>按照区间起始端点排序的区间列表。</p>
+<p>在列表中插入一个新的区间，你需要确保列表中的区间仍然有序且不重叠（如果有必要的话，可以合并区间）。</p>
+</blockquote>
+<p>这道题的难度为“困难”，但是相比之前的几道题目其实反而不需要用到什么特别的算法，只需从左到右遍历区间集合，找到新区间的插入位置并进行（可能的）合并操作。题目给的区间集合是<strong>无重叠</strong>的，因此省去了存储maxEnd的步骤，只需考虑边界条件进行适当的分类讨论即可。我的代码较为复杂，还可以进一步简化。</p>
+<figure class="highlight c++"><table><tr><td class="code"><pre><span class="line">vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; <span class="built_in">insert</span>(vector&lt;vector&lt;<span class="type">int</span>&gt;&gt;&amp; intervals, vector&lt;<span class="type">int</span>&gt;&amp; newInterval)</span><br><span class="line">&#123;</span><br><span class="line">    vector&lt;vector&lt;<span class="type">int</span>&gt;&gt; ans;</span><br><span class="line">    <span class="keyword">if</span> (intervals.<span class="built_in">empty</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">        <span class="keyword">return</span> ans;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> inserted = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (i &lt; intervals.<span class="built_in">size</span>())</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (!inserted)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">if</span> (newInterval[<span class="number">0</span>] &gt; intervals[i][<span class="number">1</span>])</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (newInterval[<span class="number">1</span>] &gt;= intervals[i][<span class="number">0</span>])</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="type">int</span> j = i + <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">while</span> (j &lt; intervals.<span class="built_in">size</span>() &amp;&amp; intervals[j][<span class="number">0</span>] &lt;= newInterval[<span class="number">1</span>])</span><br><span class="line">                    ++j;</span><br><span class="line">                <span class="type">int</span> newStart = <span class="built_in">min</span>(newInterval[<span class="number">0</span>], intervals[i][<span class="number">0</span>]);</span><br><span class="line">                <span class="keyword">if</span> (j == i + <span class="number">1</span>)</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[i][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                &#123;</span><br><span class="line">                    ans.<span class="built_in">push_back</span>(&#123;newStart, <span class="built_in">max</span>(intervals[j - <span class="number">1</span>][<span class="number">1</span>], newInterval[<span class="number">1</span>])&#125;);</span><br><span class="line">                &#125;</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">                i = j;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">            &#123;</span><br><span class="line">                ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line">                ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">                inserted = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            ans.<span class="built_in">push_back</span>(intervals[i++]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!inserted)</span><br><span class="line">        ans.<span class="built_in">push_back</span>(newInterval);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ans;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 ]]></content>
       <categories>
-        <category>C++</category>
+        <category>算法</category>
       </categories>
       <tags>
-        <tag>C++11</tag>
-        <tag>进制转换</tag>
-        <tag>负数取模</tag>
+        <tag>贪心</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>两道求最大面积的题目在解法上的不同</title>
+    <url>/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/</url>
+    <content><![CDATA[<p>今天发现两道看似十分相似但实际上有很大不同的题目，差点转不过弯来，分别是<strong>LeetCode 11 盛最多水的容器</strong>和<strong>LeetCode 84 柱状图中最大的矩形</strong>。</p>
+<p><strong>LeetCode 11 盛最多水的容器</strong></p>
+<blockquote>
+<p>给你 n 个非负整数 a1，a2，…，an，每个数代表坐标中的一个点 (i, ai) 。在坐标内画 n 条垂直线，垂直线 i 的两个端点分别为 (i, ai) 和 (i, 0) 。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。</p>
+<p>说明：你不能倾斜容器。</p>
+</blockquote>
+<p><strong>LeetCode 84 柱状图中最大的矩形</strong></p>
+<blockquote>
+<p>给定 <em>n</em> 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。</p>
+<p>求在该柱状图中，能够勾勒出来的矩形的最大面积。</p>
+</blockquote>
+<p>我先写了84题，再回过头写11题时，以为两道题的区别就是柱状图和“挡板”的区别，还是用单调栈的方法，只需在求面积的时候做一点小修改即可。</p>
+<p>先看84题。从左往右遍历柱状图的每一个柱形，若当前遍历到的柱形比上一个柱形高，则无法确定以上一个柱形的高为高的最大矩形面积，因为矩形可以越过当前柱形，一直延伸到右边，而右边的情况还不知道；反之，若当前遍历到的柱形比上一个柱形低，则以上一个柱形的高为高的矩形肯定无法越过当前柱形，又因为其左侧所有柱形已经遍历过了，所以矩形能够延伸到的左右两边的极限都可以确定，以上一个柱形的高为高的最大矩形面积也确定下来了。实际上，以当前柱形左侧的所有比当前柱形高的柱形的高为高的最大矩形面积都可以确定下来了。上述算法可以通过栈实现，栈中依次存储所有以第i个柱形为高的矩形的最大面积还未确定时的i值。</p>
+<p>解决了第84题，我把代码套到第11题的时候发现无论我怎么修改边界条件，得出来的结果与答案都相去甚远。再次读题目的时候发现两道题有一个很大的不同：在第11题中，若确定了左右边界i、j，则所得矩形的高为min{height[i], height[j]}，换言之，<strong>水可以漫过挡板i、j中间的挡板</strong>；但在第84题中，所得矩形的高还受柱形i、j中间的柱形的限制，其值为min{height[i], height[i + 1], …, height[j - 1], height[j]}，换言之，<strong>柱形相当于容器，水不能超出容器，而且水的形状必须是矩形，可以将其理解为“冰块”</strong>。</p>
+<p>因此，第11题只要确定了左右边界i、j，就可以确定矩形的面积，故遍历时使用双指针即可。</p>
+]]></content>
+      <categories>
+        <category>算法</category>
+      </categories>
+      <tags>
+        <tag>单调栈</tag>
+        <tag>双指针</tag>
       </tags>
   </entry>
 </search>

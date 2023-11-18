@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    
+    <title>基于C++的Web服务器 | Starman&#39;s Blog</title>
+    
+    
+        <meta name="keywords" content="后端,网络编程">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="description" content="项目简介编程模型 epoll I&#x2F;O多路复用  ET边沿触发+EPOLLONESHOT  非阻塞I&#x2F;O  Reactor模式   实现功能 HTTP GET请求  HTTP长连接+超时处理  日志   数据结构线程池12345678910111213141516171819202122class ThreadPool &amp;#123;public:    explicit Thre">
+<meta property="og:type" content="article">
+<meta property="og:title" content="基于C++的Web服务器">
+<meta property="og:url" content="https://starman-swa.github.io/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/index.html">
+<meta property="og:site_name" content="Starman&#39;s Blog">
+<meta property="og:description" content="项目简介编程模型 epoll I&#x2F;O多路复用  ET边沿触发+EPOLLONESHOT  非阻塞I&#x2F;O  Reactor模式   实现功能 HTTP GET请求  HTTP长连接+超时处理  日志   数据结构线程池12345678910111213141516171819202122class ThreadPool &amp;#123;public:    explicit Thre">
+<meta property="og:locale">
+<meta property="article:published_time" content="2023-11-15T09:17:09.000Z">
+<meta property="article:modified_time" content="2023-11-18T12:56:08.083Z">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="网络编程">
+<meta name="twitter:card" content="summary">
+    
+
+    
+
+    
+        <link rel="icon" href="/favicon.ico">
+    
+
+    
+<link rel="stylesheet" href="/libs/font-awesome/css/font-awesome.min.css">
+
+    
+<link rel="stylesheet" href="/libs/open-sans/styles.css">
+
+    
+<link rel="stylesheet" href="/libs/source-code-pro/styles.css">
+
+
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    
+<script src="/libs/jquery/2.1.3/jquery.min.js"></script>
+
+    
+<script src="/libs/jquery/plugins/cookie/1.4.1/jquery.cookie.js"></script>
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/lightgallery/css/lightgallery.min.css">
+
+    
+    
+        
+<link rel="stylesheet" href="/libs/justified-gallery/justifiedGallery.min.css">
+
+    
+    
+    
+    
+
+
+    
+        <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    
+<meta name="generator" content="Hexo 5.4.2"><link rel="alternate" href="/atom.xml" title="Starman's Blog" type="application/atom+xml">
+</head>
+
+<body>
+    <div id="container">
+        <header id="header">
+    <div id="header-main" class="header-inner">
+        <div class="outer">
+            <a href="/" id="logo">
+                <i class="logo"></i>
+                <span class="site-title">Starman&#39;s Blog</span>
+            </a>
+            <nav id="main-nav">
+                
+                    <a class="main-nav-link" href="/">首页</a>
+                
+                    <a class="main-nav-link" href="/archives">归档</a>
+                
+                    <a class="main-nav-link" href="/categories">分类</a>
+                
+                    <a class="main-nav-link" href="/tags">标签</a>
+                
+            </nav>
+            
+            <div id="search-form-wrap">
+
+    <form class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Search">
+        <button type="submit" class="search-form-submit"></button>
+    </form>
+    <div class="ins-search">
+    <div class="ins-search-mask"></div>
+    <div class="ins-search-container">
+        <div class="ins-input-wrapper">
+            <input type="text" class="ins-search-input" placeholder="Type something...">
+            <span class="ins-close ins-selectable"><i class="fa fa-times-circle"></i></span>
+        </div>
+        <div class="ins-section-wrapper">
+            <div class="ins-section-container"></div>
+        </div>
+    </div>
+</div>
+<script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+</div>
+        </div>
+    </div>
+    <div id="main-nav-mobile" class="header-sub header-inner">
+        <table class="menu outer">
+            <tr>
+                
+                    <td><a class="main-nav-link" href="/">首页</a></td>
+                
+                    <td><a class="main-nav-link" href="/archives">归档</a></td>
+                
+                    <td><a class="main-nav-link" href="/categories">分类</a></td>
+                
+                    <td><a class="main-nav-link" href="/tags">标签</a></td>
+                
+                <td>
+                    
+    <div class="search-form">
+        <input type="text" class="ins-search-input search-form-input" placeholder="Search">
+    </div>
+
+                </td>
+            </tr>
+        </table>
+    </div>
+</header>
+
+        <div class="outer">
+            
+            
+                <aside id="sidebar">
+   
+        
+    <div class="widget-wrap" id="categories">
+        <h3 class="widget-title">
+            <span>categories</span>
+            &nbsp;
+            <a id="allExpand" href="#">
+                <i class="fa fa-angle-double-down fa-2x"></i>
+            </a>
+        </h3>
+        
+        
+        
+         <ul class="unstyled" id="tree"> 
+                    <li class="directory open">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder-open"></i>
+                            &nbsp;
+                            C++
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/">C++11中的负数取模问题</a></li>  <li class="file active"><a href="/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/">基于C++的Web服务器</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Go
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/A-Tour-of-Go%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">A Tour of Go学习笔记</a></li>  <li class="file"><a href="/wiki/TinyKV%20Project%201%20-%20Standalone%20KV/">TinyKV Project 1 - Standalone KV</a></li>  <li class="file"><a href="/wiki/easy-note%E6%BA%90%E7%A0%81%E9%98%85%E8%AF%BB/">easy_note源码阅读</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            Linux
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E8%AE%B0%E4%B8%80%E6%AC%A1%E5%87%A0%E4%B9%8E%E8%B8%A9%E4%BA%86%E6%89%80%E6%9C%89%E5%9D%91%E7%9A%84Ubuntu%E5%8F%8C%E7%B3%BB%E7%BB%9F%E5%AE%89%E8%A3%85/">记一次几乎踩了所有坑的Ubuntu双系统安装</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            分布式
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/In-Search-of-an-Understandable-Consensus-Algorithm-Raft/">In Search of an Understandable Consensus Algorithm - Raft</a></li>  <li class="file"><a href="/wiki/6-824-lab1/">6.824 lab1</a></li>  <li class="file"><a href="/wiki/6-824-lab2a-2b/">6.824 lab2a, 2b</a></li>  <li class="file"><a href="/wiki/6-824-lab2c-2d/">6.824 lab2c, 2d</a></li>  <li class="file"><a href="/wiki/Paxos%E7%AE%97%E6%B3%95%E7%AC%94%E8%AE%B0/">Paxos算法笔记</a></li>  <li class="file"><a href="/wiki/6-824-lab3a/">6.824 lab3a</a></li>  <li class="file"><a href="/wiki/6-824-lab3b/">6.824 lab3b</a></li>  <li class="file"><a href="/wiki/raft%E7%9B%B8%E5%85%B3%E9%97%AE%E9%A2%98/">raft相关问题</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            算法
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E5%8C%BA%E9%97%B4%E8%B0%83%E5%BA%A6%E9%97%AE%E9%A2%98/">区间调度问题</a></li>  <li class="file"><a href="/wiki/%E4%B8%A4%E9%81%93%E6%B1%82%E6%9C%80%E5%A4%A7%E9%9D%A2%E7%A7%AF%E7%9A%84%E9%A2%98%E7%9B%AE%E5%9C%A8%E8%A7%A3%E6%B3%95%E4%B8%8A%E7%9A%84%E4%B8%8D%E5%90%8C/">两道求最大面积的题目在解法上的不同</a></li>  <li class="file"><a href="/wiki/0-1%E8%83%8C%E5%8C%85%E9%97%AE%E9%A2%98%E7%AC%94%E8%AE%B0/">0-1背包问题笔记</a></li>  <li class="file"><a href="/wiki/Prim%E7%AE%97%E6%B3%95-vs-Dijkstra%E7%AE%97%E6%B3%95/">Prim算法 vs Dijkstra算法</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            论文阅读
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/bsdiff%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bsdiff相关论文阅读笔记</a></li>  <li class="file"><a href="/wiki/bzip2%E7%9B%B8%E5%85%B3%E8%AE%BA%E6%96%87%E9%98%85%E8%AF%BB%E7%AC%94%E8%AE%B0/">bzip2相关论文阅读笔记</a></li>  </ul> 
+                    </li> 
+                    
+                    <li class="directory">
+                        <a href="#" data-role="directory">
+                            <i class="fa fa-folder"></i>
+                            &nbsp;
+                            软件
+                        </a>
+                         <ul class="unstyled" id="tree">  <li class="file"><a href="/wiki/%E6%88%91%E7%9A%84%E5%AE%9E%E7%94%A8%E8%BD%AF%E4%BB%B6%E6%B8%85%E5%8D%95/">我的实用软件清单</a></li>  </ul> 
+                    </li> 
+                     </ul> 
+    </div>
+    <script>
+        $(document).ready(function() {
+            var iconFolderOpenClass  = 'fa-folder-open';
+            var iconFolderCloseClass = 'fa-folder';
+            var iconAllExpandClass = 'fa-angle-double-down';
+            var iconAllPackClass = 'fa-angle-double-up';
+            // Handle directory-tree expansion:
+            // 左键单独展开目录
+            $(document).on('click', '#categories a[data-role="directory"]', function (event) {
+                event.preventDefault();
+
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var subtree = $(this).siblings('ul');
+                icon.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if (expanded) {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideUp({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderCloseClass);
+                } else {
+                    if (typeof subtree != 'undefined') {
+                        subtree.slideDown({ duration: 100 });
+                    }
+                    icon.addClass(iconFolderOpenClass);
+                }
+            });
+            // 右键展开下属所有目录
+            $('#categories a[data-role="directory"]').bind("contextmenu", function(event){
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconFolderOpenClass);
+                var listNode = $(this).siblings('ul');
+                var subtrees = $.merge(listNode.find('li ul'), listNode);
+                var icons = $.merge(listNode.find('.fa'), icon);
+                icons.removeClass(iconFolderOpenClass).removeClass(iconFolderCloseClass);
+                if(expanded) {
+                    subtrees.slideUp({ duration: 100 });
+                    icons.addClass(iconFolderCloseClass);
+                } else {
+                    subtrees.slideDown({ duration: 100 });
+                    icons.addClass(iconFolderOpenClass);
+                }
+            })
+            // 展开关闭所有目录按钮
+            $(document).on('click', '#allExpand', function (event) {
+                event.preventDefault();
+                
+                var icon = $(this).children('.fa');
+                var expanded = icon.hasClass(iconAllExpandClass);
+                icon.removeClass(iconAllExpandClass).removeClass(iconAllPackClass);
+                if(expanded) {
+                    $('#sidebar .fa.fa-folder').removeClass('fa-folder').addClass('fa-folder-open')
+                    $('#categories li ul').slideDown({ duration: 100 });
+                    icon.addClass(iconAllPackClass);
+                } else {
+                    $('#sidebar .fa.fa-folder-open').removeClass('fa-folder-open').addClass('fa-folder')
+                    $('#categories li ul').slideUp({ duration: 100 });
+                    icon.addClass(iconAllExpandClass);
+                }
+            });  
+        });
+    </script>
+
+    
+    <div id="toTop" class="fa fa-angle-up"></div>
+</aside>
+            
+            <section id="main"><article id="post-基于C-的Web服务器" class="article article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+        
+        
+            <header class="article-header">
+                
+                    <div class="article-meta">
+                        
+    <div class="article-category">
+    	<i class="fa fa-folder"></i>
+        <a class="article-category-link" href="/categories/C/">C++</a>
+    </div>
+
+                        
+    <div class="article-tag">
+        <i class="fa fa-tag"></i>
+        <a class="tag-link-link" href="/tags/%E5%90%8E%E7%AB%AF/" rel="tag">后端</a>, <a class="tag-link-link" href="/tags/%E7%BD%91%E7%BB%9C%E7%BC%96%E7%A8%8B/" rel="tag">网络编程</a>
+    </div>
+
+                        
+    <div class="article-date">
+        <i class="fa fa-calendar"></i>
+        <a href="/wiki/%E5%9F%BA%E4%BA%8EC-%E7%9A%84Web%E6%9C%8D%E5%8A%A1%E5%99%A8/">
+            <time datetime="2023-11-15T09:17:09.000Z" itemprop="datePublished">2023-11-15</time>
+        </a>
+    </div>
+
+
+                        
+                            <i class="fa fa-bar-chart"></i>
+                            <span id="busuanzi_container_site_pv"><span id="busuanzi_value_page_pv"></span></span>    
+                        
+                        
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/raw/main/source/_posts/基于C-的Web服务器.md"> Source </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/edit/main/source/_posts/基于C-的Web服务器.md"> Edit </a>
+                            </div>
+                            <div class="article-meta-button">
+                                <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/starman-swa/myBlog/commits/main/source/_posts/基于C-的Web服务器.md"> History </a>
+                            </div>
+                        
+                    </div>
+                
+                
+    
+        <h1 class="article-title" itemprop="name">
+            基于C++的Web服务器
+        </h1>
+    
+
+            </header>
+        
+        
+        <div class="article-entry" itemprop="articleBody">
+        
+        
+            
+                <div id="toc" class="toc-article">
+                <strong class="toc-title">Catalogue</strong>
+                    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E7%AE%80%E4%BB%8B"><span class="toc-number">1.</span> <span class="toc-text">项目简介</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%96%E7%A8%8B%E6%A8%A1%E5%9E%8B"><span class="toc-number">1.1.</span> <span class="toc-text">编程模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E5%8A%9F%E8%83%BD"><span class="toc-number">1.2.</span> <span class="toc-text">实现功能</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">数据结构</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B%E6%B1%A0"><span class="toc-number">2.1.</span> <span class="toc-text">线程池</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RequestHandler"><span class="toc-number">2.2.</span> <span class="toc-text">RequestHandler</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ReadState%E5%92%8CWriteState"><span class="toc-number">2.2.1.</span> <span class="toc-text">ReadState和WriteState</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Server"><span class="toc-number">2.3.</span> <span class="toc-text">Server</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%B5%81%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">流程</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E7%BA%BF%E7%A8%8B"><span class="toc-number">3.1.</span> <span class="toc-text">主线程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E7%BA%BF%E7%A8%8B"><span class="toc-number">3.2.</span> <span class="toc-text">工作线程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%AF%E8%AF%BB%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86"><span class="toc-number">3.2.1.</span> <span class="toc-text">可读事件处理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8F%AF%E5%86%99%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86"><span class="toc-number">3.2.2.</span> <span class="toc-text">可写事件处理</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%95%BF%E8%BF%9E%E6%8E%A5%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.</span> <span class="toc-text">长连接的实现</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%B6%85%E6%97%B6%E5%A4%84%E7%90%86"><span class="toc-number">5.</span> <span class="toc-text">超时处理</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E2%80%94%E2%80%94%E6%83%B0%E6%80%A7%E9%87%8D%E7%BD%AE"><span class="toc-number">5.1.</span> <span class="toc-text">数据结构——惰性重置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#std-multiset-or-std-priority-queue"><span class="toc-number">5.2.</span> <span class="toc-text">std::multiset or std::priority_queue</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8%E5%92%8Creset%E5%AE%9A%E6%97%B6%E5%99%A8%E7%9A%84%E4%BD%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">5.3.</span> <span class="toc-text">启动和reset定时器的位置？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E7%9A%84%E5%85%B6%E4%BB%96%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">遇到的其他问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%86%8CEPOLLONESHOT%E7%9A%84%E4%BD%9C%E7%94%A8%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">注册EPOLLONESHOT的作用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RequestHandler%E5%BA%94%E5%BD%93%E9%9D%99%E6%80%81%E5%88%86%E9%85%8D%E8%BF%98%E6%98%AF%E5%8A%A8%E6%80%81%E5%88%86%E9%85%8D%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">RequestHandler应当静态分配还是动态分配？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HTTP%E7%9A%84%E6%A0%BC%E5%BC%8F%E9%97%AE%E9%A2%98"><span class="toc-number">6.3.</span> <span class="toc-text">HTTP的格式问题</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">7.</span> <span class="toc-text">参考资料</span></a></li></ol>
+                </div>
+            
+        
+        
+            <h1 id="项目简介"><a href="#项目简介" class="headerlink" title="项目简介"></a>项目简介</h1><h2 id="编程模型"><a href="#编程模型" class="headerlink" title="编程模型"></a>编程模型</h2><ul>
+<li><p>epoll I&#x2F;O多路复用</p>
+</li>
+<li><p>ET边沿触发+EPOLLONESHOT</p>
+</li>
+<li><p>非阻塞I&#x2F;O</p>
+</li>
+<li><p>Reactor模式</p>
+</li>
+</ul>
+<h2 id="实现功能"><a href="#实现功能" class="headerlink" title="实现功能"></a>实现功能</h2><ul>
+<li><p>HTTP GET请求</p>
+</li>
+<li><p>HTTP长连接+超时处理</p>
+</li>
+<li><p>日志</p>
+</li>
+</ul>
+<h1 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h1><h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ThreadPool</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">ThreadPool</span><span class="params">(std::<span class="type">size_t</span> _thread_num, std::<span class="type">size_t</span> _max_request_num)</span> : \</span></span><br><span class="line"><span class="function">        threads(_thread_num), request_queue(_max_request_num) &#123;</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; thread : threads) &#123;</span><br><span class="line">            thread = std::<span class="built_in">thread</span>(&amp;ThreadPool::worker, <span class="keyword">this</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">ThreadPool</span>(ThreadPool&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">ThreadPool</span>(ThreadPool&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ThreadPool&amp; <span class="keyword">operator</span>=(ThreadPool&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ThreadPool&amp; <span class="keyword">operator</span>=(ThreadPool&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">ThreadPool</span>();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">append</span><span class="params">(RequestHandler* p_req)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">worker</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    std::vector&lt;std::thread&gt; threads;</span><br><span class="line">    ThreadSafeQueue&lt;RequestHandler*&gt; request_queue;</span><br><span class="line">    <span class="type">bool</span> stop = <span class="literal">false</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>采用<code>std::thread</code>线程库创建若干个工作线程。线程池包含一个线程安全队列<code>ThreadSafeQueue</code>，保存工作线程待处理的事件队列。实现<code>append</code>和<code>worker</code>方法，<code>append</code>方法将新事件加入线程安全队列，待线程池处理；<code>worker</code>方法为每个工作线程的工作函数，包含一个循环，工作线程从队列当中循环读取事件，并根据事件类型，执行读处理函数或写处理函数。</p>
+<h2 id="RequestHandler"><a href="#RequestHandler" class="headerlink" title="RequestHandler"></a>RequestHandler</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">RequestHandler</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">RequestHandler</span><span class="params">(std::<span class="type">size_t</span> read_buf_size = <span class="number">2048</span>, std::<span class="type">size_t</span> write_buf_size = <span class="number">2048</span>)</span> : read_state(read_buf_size),</span></span><br><span class="line"><span class="function">                                                                                     write_state(write_buf_size) &#123;</span></span><br><span class="line">        <span class="built_in">signal</span>(SIGPIPE, SIG_IGN);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">RequestHandler</span>(RequestHandler&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">RequestHandler</span>(RequestHandler&amp;&amp;) = <span class="keyword">default</span>;</span><br><span class="line">    RequestHandler&amp; <span class="keyword">operator</span>=(RequestHandler&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    RequestHandler&amp; <span class="keyword">operator</span>=(RequestHandler&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">RequestHandler</span>() = <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">reset</span><span class="params">(<span class="type">int</span> conn_fd, TimerTask* timer_task)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">process_read</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">process_write</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">close_conn_static</span><span class="params">(<span class="type">int</span> conn_fd, TimerTask* timer_task)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">close_conn</span><span class="params">(<span class="type">int</span> conn_fd)</span></span>;</span><br><span class="line">    [[nodiscard]] <span class="function"><span class="type">int</span> <span class="title">get_conn_fd</span><span class="params">()</span> <span class="type">const</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">mod_fd_to_epoll</span><span class="params">(<span class="type">int</span> epoll_fd, <span class="type">int</span> fd, <span class="type">uint32_t</span> events)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">static</span> <span class="type">int</span> epoll_fd;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">using</span> TaskType = <span class="keyword">enum</span> &#123;READ, WRITE&#125;;</span><br><span class="line">    TaskType task_type = READ;</span><br><span class="line"></span><br><span class="line">    <span class="type">static</span> TimerHeap* timer_heap;</span><br><span class="line">    TimerTask* timer_task = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">protected</span>:</span><br><span class="line">    <span class="type">int</span> conn_fd = <span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">    ReadState read_state;</span><br><span class="line">    WriteState write_state;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> keep_alive = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">write_status_code_to_buf</span><span class="params">(<span class="type">int</span> status_code, <span class="type">const</span> std::string &amp;err_msg, <span class="type">size_t</span> body_length = <span class="number">0</span>)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">write_file_info_to_buf</span><span class="params">(<span class="type">const</span> std::string &amp;url)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">read_socket_to_buf</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">write_buf_to_socket</span><span class="params">()</span></span>;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">parse_one_request</span><span class="params">()</span></span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>RequestHandler</code>为请求处理类，一个<code>RequestHandler</code>实例处理一个HTTP请求。<code>RequestHandler</code>类包含一个<code>ReadState</code>成员和一个<code>WriteState</code>成员，分别包含该socket的读、写状态信息和对应的缓冲区。<code>RequestHandler</code>类还包含当前触发事件类型（读或写）和相应的处理函数<code>process_read()</code>和<code>process_write()</code>。<code>RequestHandler</code>还包含超时处理的相关结构，将在后面的章节单独讨论，这里暂且不表。</p>
+<h3 id="ReadState和WriteState"><a href="#ReadState和WriteState" class="headerlink" title="ReadState和WriteState"></a>ReadState和WriteState</h3><ul>
+<li><p><code>ReadState</code>包含一段由<code>std::unique_ptr</code>管理的堆内存作为缓冲区，以及读指针。</p>
+</li>
+<li><p><code>WriteState</code>包含一段由<code>std::unique_ptr</code>管理的堆内存作为缓冲区，以及写指针。由于HTTP的写响应过程包含写请求头和写请求体（文件），因此<code>WriteState</code>还包含客户端所请求的文件描述符和状态变量。</p>
+</li>
+</ul>
+<h2 id="Server"><a href="#Server" class="headerlink" title="Server"></a>Server</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Server</span> &#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">Server</span><span class="params">(ServerConfig  _config)</span> : config(std::move(_config)), worker_thread_pool(config.thread_num, config.threadpool_max_request_num), \</span></span><br><span class="line"><span class="function">    timer_heap(config.timerheap_default_time_slot)</span></span><br><span class="line"><span class="function">    &#123;</span></span><br><span class="line">        listen_sock = <span class="built_in">socket</span>(PF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (listen_sock == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;socket() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">setsockopt</span>(listen_sock, SOL_SOCKET, SO_REUSEADDR, &amp;config.op_so_reuseaddr, <span class="built_in">sizeof</span>(config.op_so_reuseaddr))) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;setsockopt() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        sockaddr_in serv_addr&#123;&#125;;</span><br><span class="line">        serv_addr.sin_family = AF_INET;</span><br><span class="line">        serv_addr.sin_addr.s_addr = <span class="built_in">htonl</span>(INADDR_ANY);</span><br><span class="line">        serv_addr.sin_port = <span class="built_in">htons</span>(std::<span class="built_in">stoi</span>(config.port));</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">bind</span>(listen_sock, (sockaddr*)&amp;serv_addr, <span class="built_in">sizeof</span>(serv_addr)) == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;bind() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">listen</span>(listen_sock, config.listen_queue_len) == <span class="number">-1</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;listen() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">pipe</span>(sig_pipe) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">throw</span> std::<span class="built_in">runtime_error</span>(<span class="string">&quot;pipe() err&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        request_handlers = std::<span class="built_in">vector</span>&lt;RequestHandler&gt;(config.max_fd);</span><br><span class="line">        timer_tasks = std::<span class="built_in">vector</span>&lt;TimerTask&gt;(config.max_fd);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">Server</span>(Server&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    <span class="built_in">Server</span>(Server&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    Server&amp; <span class="keyword">operator</span>=(Server&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    Server&amp; <span class="keyword">operator</span>=(Server&amp;&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    ~<span class="built_in">Server</span>();</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">run</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">using</span> EpollSigHandlerReturnType = <span class="keyword">struct</span> &#123;<span class="type">bool</span> stop; <span class="type">bool</span> timeout;&#125;;</span><br><span class="line"></span><br><span class="line">    ServerConfig config;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> listen_sock;</span><br><span class="line">    <span class="type">static</span> <span class="type">int</span> sig_pipe[<span class="number">2</span>];</span><br><span class="line">    <span class="type">char</span> sig_buf[<span class="number">4</span>];</span><br><span class="line">    TimerHeap timer_heap;</span><br><span class="line">    std::vector&lt;RequestHandler&gt; request_handlers;</span><br><span class="line">    std::vector&lt;TimerTask&gt; timer_tasks;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">fd_set_non_blocking</span><span class="params">(<span class="type">int</span> fd)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">add_fd_to_epoll</span><span class="params">(<span class="type">int</span> epoll_fd, <span class="type">int</span> fd, <span class="type">uint32_t</span> events)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">sig_handler</span><span class="params">(<span class="type">int</span> sig)</span></span>;</span><br><span class="line">    <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">add_sig</span><span class="params">(<span class="type">int</span> sig)</span></span>;</span><br><span class="line">    [[nodiscard]] <span class="function">EpollSigHandlerReturnType <span class="title">epoll_sig_handler</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">timer_heap_ticker</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">    ThreadPool worker_thread_pool;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>Server</code>为最外层的服务器类，包含一个工作线程池，一个<code>RequestHandler</code>数组。<code>Server</code>类在构造时，首先执行服务器编程必备的<code>socket</code>、<code>listen</code>、<code>bind</code>三件套，然后在<code>request_handlers</code>数组中构造<code>config.max_fd</code>个<code>RequestHandler</code>对象，与<code>config.max_fd</code>个文件描述符一一对应。当文件描述符fd accept了一个新的连接时，服务器会调用<code>request_handlers[fd].reset()</code>函数重置用于这个文件描述符的<code>RequestHandler</code>对象，使其做好处理新连接的准备。</p>
+<h1 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h1><h2 id="主线程"><a href="#主线程" class="headerlink" title="主线程"></a>主线程</h2><p>主线程将监听socket的可读事件注册到epoll当中，然后循环调用<code>epoll_wait</code>函数获取就绪事件：</p>
+<ul>
+<li>如果监听到监听socket的可读事件，则<code>accept</code>一个新连接，建立连接之后，socket并不一定处于可读状态（客户端还未发送数据），如果这个时候调用读处理函数，工作线程很有可能读不到内容直接返回，白白浪费CPU资源。因此，我们在这个地方直接将新连接的可读事件注册到epoll当中即可。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">add_fd_to_epoll</span>(epoll_fd, conn_sock, EPOLLET | EPOLLONESHOT | EPOLLIN);</span><br><span class="line"><span class="built_in">fd_set_non_blocking</span>(conn_sock);</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>如果监听到连接socket的可读或可写事件，则设置<code>RequestHandler</code>的状态为<code>READ</code>或<code>WRITE</code>，然后加入线程池。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (ep_events[i].events &amp; EPOLLIN) &#123;</span><br><span class="line">    request_handlers[event_fd].task_type = RequestHandler::READ;</span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (ep_events[i].events &amp; EPOLLOUT) &#123;</span><br><span class="line">    request_handlers[event_fd].task_type = RequestHandler::WRITE;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">worker_thread_pool.<span class="built_in">append</span>(&amp;request_handlers[event_fd]);</span><br></pre></td></tr></table></figure>
+
+<h2 id="工作线程"><a href="#工作线程" class="headerlink" title="工作线程"></a>工作线程</h2><h3 id="可读事件处理"><a href="#可读事件处理" class="headerlink" title="可读事件处理"></a>可读事件处理</h3><ul>
+<li><p>在ET边沿触发模式下，每个可读或可写事件只会被触发一次，因此，事件处理函数需要循环读或写socket，直到没有东西可读&#x2F;可写（返回EAGAIN &#x2F; EWOULDBLOCK），或者连接被关闭（返回0）为止。上述循环位于<code>read_socket_to_buf</code>和<code>write_buf_to_socket</code>函数中。</p>
+</li>
+<li><p>TCP是基于流的协议，这就意味着一次完整的读操作之后，缓冲区内有可能包含一个或多个HTTP请求，也有可能只包含一个请求的一部分。因此，我们也需要循环解析缓冲区的内容，并针对每个请求发送响应报文。</p>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RequestHandler::process_read</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">read_socket_to_buf</span>()) &#123; <span class="comment">// 读socket，直到没有东西可读</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// loop to deal with possible multiple requests in read buffer</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">parse_one_request</span>()) &#123; <span class="comment">// 解析一个请求，并将响应报文写到写缓冲区中</span></span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123; <span class="comment">// 发送写缓冲区内的所有内容</span></span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>问题来了。前面说到，在<code>accept</code>一个连接之后连接不一定可读，应该注册可读事件而不是直接执行读处理函数，否则工作线程可能读不到东西。那在这个地方，解析完一个HTTP请求之后，是否应该认为连接不一定可读，从而需要可读事件呢？</p>
+<p>答案是否定的。socket的可读可写条件如下：</p>
+<blockquote>
+<p>当如下任一情况发生时，会产生套接字的可读事件：</p>
+<ul>
+<li>该套接字的接收缓冲区中的数据字节数大于等于套接字接收缓冲区低水位标记的大小；</li>
+<li>该套接字的读半部关闭（也就是收到了FIN），对这样的套接字的读操作将返回0（也就是返回EOF）；</li>
+<li>该套接字是一个监听套接字且已完成的连接数不为0；</li>
+<li>该套接字有错误待处理，对这样的套接字的读操作将返回-1。</li>
+</ul>
+<p>当如下任一情况发生时，会产生套接字的可写事件：</p>
+<ul>
+<li>该套接字的发送缓冲区中的可用空间字节数大于等于套接字发送缓冲区低水位标记的大小；</li>
+<li>该套接字的写半部关闭，继续写会产生SIGPIPE信号；</li>
+<li>非阻塞模式下，connect返回之后，该套接字连接成功或失败；</li>
+<li>该套接字有错误待处理，对这样的套接字的写操作将返回-1。</li>
+</ul>
+</blockquote>
+<p>可读和可写条件的后三条都是异常情况，我们只关注第一条。socket可读的条件是接收缓冲区的数据大于低水位标记，在<code>accept</code>之后，这个条件不一定会满足，因为我们不知道客户端在连接成功后到服务器调用<code>read</code>之前这段时间内会写入多少东西，因此服务器需要注册可读事件而不是直接读。然而，可写的条件是发送缓冲区的<strong>可用</strong>空间大于低水位标记，在第一次执行完<code>parse_one_request()</code>之后，这个条件是满足的。</p>
+<p>因此，我们先尝试进行发送，如果遇到发送失败的情况，再注册可写事件然后退出。</p>
+<h3 id="可写事件处理"><a href="#可写事件处理" class="headerlink" title="可写事件处理"></a>可写事件处理</h3><p>同样地，可写事件处理函数的第一步操作是尝试将写缓冲区的内容全部发送，如果发送失败，则注册可写事件并退出。</p>
+<p>如果写缓冲区的内容全部清空了，是否意味着我们可以退出函数了？</p>
+<p>还没。我们当前正在处理的可写事件，有可能是在<code>process_read()</code>的while循环中注册的。如果这个可写事件没有被注册，那么<code>process_read()</code>函数还会继续执行<code>parse_one_request()</code>，解析剩下的报文。这就意味着，在<code>process_write()</code>执行时，读缓冲区中同样可能留存有未被解析的报文，我们需要写一个同样的while循环进行解析。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RequestHandler::process_write</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">// write buffer and file</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// loop to parse read buffer and write</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">parse_one_request</span>()) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">write_buf_to_socket</span>()) &#123;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="长连接的实现"><a href="#长连接的实现" class="headerlink" title="长连接的实现"></a>长连接的实现</h1><p>HTTP支持长连接，客户端的HTTP请求报文中，如果<code>Connection</code>字段为<code>keep-alive</code>，表示客户端希望保持这个TCP连接不被断开，在发送下一次请求的时候仍然使用这个连接。在服务器当中，需要判断客户端是否请求建立长连接，然后在读缓冲区为空的时候执行不同的操作。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">RequestHandler::parse_one_request</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (read_state.read_idx == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (keep_alive) &#123;</span><br><span class="line">            <span class="built_in">mod_fd_to_epoll</span>(epoll_fd, conn_fd, EPOLLET | EPOLLIN | EPOLLONESHOT); <span class="comment">// connection:keep-alive</span></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="built_in">close_conn</span>(conn_fd); <span class="comment">// connection:closed</span></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果不是长连接，则在读缓冲区为空时关闭连接；否则重新向epoll注册可读事件。</p>
+<h1 id="超时处理"><a href="#超时处理" class="headerlink" title="超时处理"></a>超时处理</h1><p>在使用HTTP长连接时，如果客户端长时间没有关闭连接，那么服务器应当主动关闭连接，避免资源被过多的非活跃连接占用。即使是在使用短连接的情况下，也有可能由于各种原因出现非活跃连接。为此，需要为每个活跃的连接设置一个定时器，在定时器超时时，服务器主动断开连接。</p>
+<h2 id="数据结构——惰性重置"><a href="#数据结构——惰性重置" class="headerlink" title="数据结构——惰性重置"></a>数据结构——惰性重置</h2><p>定时器的数据结构应该如何设计？我们采用一种常见的定时器——堆定时器。堆定时器应实现如下接口：</p>
+<ul>
+<li><p>插入一个定时任务</p>
+</li>
+<li><p>取出超时时刻最早的定时任务</p>
+</li>
+<li><p>重置一个定时任务的超时时刻</p>
+</li>
+</ul>
+<p>显然前两个接口可以通过<code>std::priority_queue</code>或<code>std::multiset</code>实现，只需要将超时时刻的先后作为比较两个定时任务的标准。</p>
+<blockquote>
+<p>P.S. 之所以需要用<code>std::multiset</code>而不是<code>std::set</code>，是因为同一个超时时刻有可能对应多个定时任务。</p>
+</blockquote>
+<p>现在考虑第三个接口的实现。首先考虑一种最简单的实现方式：直接修改定时器任务对象的超时时刻。然而，我们首先要问一个问题：当元素被插入<code>std::priority_queue</code>或<code>std::multiset</code>之后，是否还能改变元素的key值？</p>
+<ul>
+<li><p><code>std::priority_queue</code>的实现是二叉堆，对于元素的排序操作发生在插入元素和取出根节点的时候。如果我们修改了根节点的key值，这个根节点的位置不会发生变化，还是会被首先取出；如果我们更改了非根节点的key值（使它的超时时刻变得最早），在下一次调用pop的时候也无法取出这个节点。</p>
+</li>
+<li><p><code>std::multiset</code>的实现是红黑树，其中所有节点的位置在每一个时刻都是确定的，且取决于每一个节点的key。如果在某一时刻修改了一个节点的key，将会破坏红黑树的结构。</p>
+</li>
+</ul>
+<p>可见，无论采用何种STL容器（适配器），定时器的超时时刻都不能够被随意修改。为了解决这个问题，本项目设计了一种惰性重置的方式。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 基于multiset</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">TimerTask::reset</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    is_reset = <span class="literal">true</span>;</span><br><span class="line">    new_expired_time = std::<span class="built_in">time</span>(<span class="literal">nullptr</span>) + timeout;</span><br><span class="line"></span><br><span class="line"><span class="function">std::<span class="type">time_t</span> <span class="title">TimerHeap::tick</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (!s.<span class="built_in">empty</span>() &amp;&amp; (*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">get_expired_time</span>() &lt;= std::<span class="built_in">time</span>(<span class="literal">nullptr</span>)) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">is_valid</span>()) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((*s.<span class="built_in">begin</span>())-&gt;is_reset) &#123;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;is_reset = <span class="literal">false</span>;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;expired_time = (*s.<span class="built_in">begin</span>())-&gt;new_expired_time;</span><br><span class="line">                <span class="keyword">auto</span> ptr = *s.<span class="built_in">begin</span>();</span><br><span class="line">                s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">                s.<span class="built_in">insert</span>(ptr);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                (*s.<span class="built_in">begin</span>())-&gt;<span class="built_in">callback</span>();</span><br><span class="line">                s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            s.<span class="built_in">erase</span>(s.<span class="built_in">begin</span>());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>定时任务包含<code>is_reset</code>字段和新的超时时刻<code>new_expired_time</code>字段，当需要充值定时任务时，不改变原始的<code>expired_time</code>字段，而是将<code>is_reset</code>置为<code>true</code>，并将新的超时时刻写入<code>new_expired_time</code>变量。当定时器进行<code>tick</code>时，在取出队首元素之后会判断是否进行了重置，若是，则修改其时间之后重新插入堆中。</p>
+<p>能否在<code>TimerTask::reset</code>函数当中执行删除和重新插入的操作？还是不行。注意到<code>tick</code>函数中我是用迭代器删除了首部元素。如果要在<code>reset</code>函数中进行删除，元素不一定在首部，只能通过key值删除。然而一个key值（超时时刻）会对应多个定时任务，我们无法通过一行代码直接删除目标元素，还需要遍历相同key的不同定时任务进行查找。</p>
+<p>如果采用的是<code>std::priority_queue</code>就更不用说了，根本没有删除中间元素的接口。</p>
+<p>因此，惰性删除是较好的选择。</p>
+<h2 id="std-multiset-or-std-priority-queue"><a href="#std-multiset-or-std-priority-queue" class="headerlink" title="std::multiset or std::priority_queue"></a>std::multiset or std::priority_queue</h2><p>使用惰性删除时，由于只需要取首元素，因此<code>std::priority_queue</code>和<code>std::multiset</code>均可。</p>
+<h2 id="启动和reset定时器的位置？"><a href="#启动和reset定时器的位置？" class="headerlink" title="启动和reset定时器的位置？"></a>启动和reset定时器的位置？</h2><ul>
+<li><p>启动定时器：accept时</p>
+</li>
+<li><p>reset定时器：监听到可读&#x2F;可写事件时</p>
+</li>
+</ul>
+<p>一种细粒度的实现是每次读&#x2F;写成功的时候都重启定时器，但是会过于消耗资源，并且提高编程复杂度。本项目的定时器粒度较粗。</p>
+<h1 id="遇到的其他问题"><a href="#遇到的其他问题" class="headerlink" title="遇到的其他问题"></a>遇到的其他问题</h1><h2 id="注册EPOLLONESHOT的作用？"><a href="#注册EPOLLONESHOT的作用？" class="headerlink" title="注册EPOLLONESHOT的作用？"></a>注册EPOLLONESHOT的作用？</h2><p>保证一个socket只由一个工作线程处理。</p>
+<p>如果不注册<code>EPOLLONESHOT</code>，在工作线程读一个socket的过程中，即使采用了ET边沿触发，主线程仍然有可能再次触发<code>EPOLLIN</code>事件，并交由另一个工作线程处理，造成两个线程同时读一个socket的局面。</p>
+<p>有人做了实验证明，ET模式，不注册<code>EPOLLONESHOT</code>，在读缓冲区溢出的时候会重复注册可读事件：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://juejin.cn/post/7102252724212727844">EPOLLONESHOT及其引发的EPOLL在ET能被多次触发吗？ - 掘金 (juejin.cn)</a></p>
+<h2 id="RequestHandler应当静态分配还是动态分配？"><a href="#RequestHandler应当静态分配还是动态分配？" class="headerlink" title="RequestHandler应当静态分配还是动态分配？"></a>RequestHandler应当静态分配还是动态分配？</h2><p>在项目的初始版本中，由于担心静态分配的<code>RequestHandler</code>占用太多内存，我采用的是动态分配的方式。每一个请求来了之后<code>make_unique</code>一个<code>RequestHandler</code>对象，然后将指针<code>std::move</code>给工作线程。然后问题来了：第一，缓冲区怎么设计？这时，一个<code>RequestHandler</code>对象并不是对应一个连接，而是对应一个连接的一次事件触发，在<code>RequestHandler</code>对象析构后，有可能读缓冲区还有不完整的报文，需要等待下一次可读事件。为此，需要在<code>Server</code>类中维护一个读写缓冲区集合。由于错误估计了内存占用，对于读写缓冲区，我仍然采用动态分配。。于是又涉及到如何线程安全的读写STL容器，以及确定缓冲区的删除时机的问题。在删除缓冲区时，又涉及到主线程和工作线程的通信，为此我还设计了一个通信队列……除此之外，由于定时器我也是动态分配的，所以又要走一套上面的流程。。</p>
+<p>编程上的复杂性还不够，动态分配<code>RequestHandler</code>还会带来<code>RequestHandler</code>的构造析构开销。</p>
+<p>经过了上述尝试，我又将<code>RequestHandler</code>改为静态分配了。事实上，现有实现中，<code>RequestHandler</code>对象占用空间不超过5KB，数组长度为65536，占用内存仅有320MB，这对于一台Web服务器来说完全可以接收。</p>
+<h2 id="HTTP的格式问题"><a href="#HTTP的格式问题" class="headerlink" title="HTTP的格式问题"></a>HTTP的格式问题</h2><p>在DEBUG的过程中，我看到网上好一些博客都说HTTP的<code>Content-Length</code>字段是八进制的，为此还懊恼了好久。后来调着调着发现用八进制结果也不对啊（浏览器在显示完我的页面之后还会一直转圈）。</p>
+<p>无奈只能查RFC，原文是这么说的：</p>
+<blockquote>
+<p><a target="_blank" rel="external nofollow noopener noreferrer" href="https://datatracker.ietf.org/doc/html/rfc2616#section-14.13">14.13</a> Content-Length</p>
+<p>   The Content-Length entity-header field indicates the size of the<br>   entity-body, <strong>in decimal number of OCTETs</strong>, sent to the recipient or,<br>   in the case of the HEAD method, the size of the entity-body that<br>   would have been sent had the request been a GET.</p>
+</blockquote>
+<p>博主们，你们只知道OCT是八进制，不知道decimal是十进制吗？？再说他也不是OCT，而是OCTETs啊，看看维基百科怎么说的：</p>
+<blockquote>
+<p>The <strong>octet</strong> is a <a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.wikipedia.org/wiki/Units_of_information" title="Units of information">unit of digital information</a> in <a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.wikipedia.org/wiki/Computing" title="Computing">computing</a> and <a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.wikipedia.org/wiki/Telecommunication" title="Telecommunication">telecommunications</a> that consists of eight <a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.wikipedia.org/wiki/Bit" title="Bit">bits</a>. The term is often used when the term <em><a target="_blank" rel="external nofollow noopener noreferrer" href="https://en.wikipedia.org/wiki/Byte" title="Byte">byte</a></em> might be ambiguous, as the byte has historically been used for storage units of a variety of sizes.</p>
+</blockquote>
+<p>OCTET就是8比特，就是字节。也就是说，<code>Content-Length</code>就是用十进制表示的字节数。。建议大家遇到这种协议、规范、定义类的东西最好查原文，不要看博客。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><blockquote>
+<ul>
+<li>[1] 游双. Linux高性能服务器编程</li>
+</ul>
+</blockquote>
+
+            </div>
+        
+        <footer class="article-footer">
+        </footer>
+    </div>
+</article>
+
+
+    
+<nav id="article-nav">
+    
+    
+        <a href="/wiki/C-11%E4%B8%AD%E7%9A%84%E8%B4%9F%E6%95%B0%E5%8F%96%E6%A8%A1%E9%97%AE%E9%A2%98/" id="article-nav-older" class="article-nav-link-wrap">
+            <strong class="article-nav-caption">Older</strong>
+            <div class="article-nav-title">C++11中的负数取模问题</div>
+        </a>
+    
+</nav>
+
+
+
+
+
+    
+    
+
+
+
+
+<!-- baidu url auto push script -->
+<script type="text/javascript">
+    !function(){var e=/([http|https]:\/\/[a-zA-Z0-9\_\.]+\.baidu\.com)/gi,r=window.location.href,o=document.referrer;if(!e.test(r)){var n="//api.share.baidu.com/s.gif";o?(n+="?r="+encodeURIComponent(document.referrer),r&&(n+="&l="+r)):r&&(n+="?l="+r);var t=new Image;t.src=n}}(window);
+</script>     
+</section>
+        </div>
+        <footer id="footer">
+    <div class="outer">
+        <div id="footer-info" class="inner">
+            Starman&#39;s Blog &copy; 2023 
+            <a rel="external nofollow noopener noreferrer" target="_blank" href="http://creativecommons.org/licenses/by-nc-nd/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/4.0/80x15.png"></a>
+            <br> Powered by <a href="http://hexo.io/" target="_blank" rel="external nofollow noopener noreferrer">Hexo</a>. Theme - <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/zthxxx/hexo-theme-Wikitten">wikitten</a>
+            
+                <br>
+                <span id="busuanzi_container_site_pv"><i class="fa fa-eye"></i> <span id="busuanzi_value_site_pv"></span></span>
+                &nbsp;|&nbsp;
+                <span id="busuanzi_container_site_pv"><i class="fa fa-user"></i> <span id="busuanzi_value_site_uv"></span></span>
+            
+        </div>
+    </div>
+</footer>
+
+        
+
+    
+        
+<script src="/libs/lightgallery/js/lightgallery.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-thumbnail.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-pager.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-autoplay.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-fullscreen.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-zoom.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-hash.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-share.min.js"></script>
+
+        
+<script src="/libs/lightgallery/js/lg-video.min.js"></script>
+
+    
+    
+        
+<script src="/libs/justified-gallery/jquery.justifiedGallery.min.js"></script>
+
+    
+    
+        <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [ ["$","$"], ["\\(","\\)"] ],
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+            processEscapes: true,
+            TeX: {
+                equationNumbers: {
+                  autoNumber: 'AMS'
+                }
+            }
+        }
+    });
+    MathJax.Hub.Queue(function() {
+        var all = MathJax.Hub.getAllJax();
+        for (var i = 0; i < all.length; ++i)
+            all[i].SourceElement().parentNode.className += ' has-jax';
+    });
+</script>
+<script async src="//cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+
+
+
+<!-- Custom Scripts -->
+
+<script src="/js/main.js"></script>
+
+
+    </div>
+</body>
+</html>
